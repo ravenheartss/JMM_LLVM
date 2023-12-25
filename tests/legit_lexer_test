@@ -1,0 +1,33 @@
+1020
+true, false, boolean, int, void, if, else, while, break, return, str
+2432
+0343
+// comment
+identifier __id __24
++
+-
+*
+/
+%
+123uh
+&&&
+|||
+|
+||
+&
+&&
+<
+>
+<=
+>=
+!
+^
+!=
+==
+=
+()
+{}
+[]
+;
+,
+"wowo\b\f\r\t\n\\\'\""

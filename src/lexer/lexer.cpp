@@ -1,26 +1,29 @@
 
 #include "lexer.h"
 #include "common/token.h"
-#include <common/errwarn.h>
+#include "common/errwarn.h"
+
 #include <cctype>
 #include <fstream>
+#include <memory>
 
-Lexer::Lexer(std::string filename)
+Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger> &logger)
     : m_curr_lexeme()
     , m_consumed(true)
     , m_lineno(1)
     , m_filename(filename)
+    , m_logger(logger)
 {
     m_input = std::ifstream(filename);
     if (!m_input.is_open())
-        error("Failed to open file.\n", std::strerror(errno));
+        m_logger->error("Failed to open file.\n", std::strerror(errno));
 }
 
 Lexer::~Lexer()
 {
     m_curr_lexeme.clear();
     m_input.close();
-    m_filename.clear();
+    m_logger.reset();
 }
 
 Token Lexer::peek()
@@ -30,16 +33,23 @@ Token Lexer::peek()
 
     lex();
     m_consumed = false;
+
+#ifdef LEXER_DEBUG
+    fprintf(stderr, "Line: %d \t Token: %s \t Lexeme: %s\n", m_lineno, tokenToStr(m_curr_token),
+            m_curr_lexeme.c_str());
+#endif
     return m_curr_token;
 }
 
-Token Lexer::consume()
+Token Lexer::match(Token expected)
 {
-    Token tok = peek();
+    if (peek() != expected)
+    {
+        m_logger->error("Expected ", tokenToStr(expected), " but got ", tokenToStr(peek()));
+    }
     m_consumed = true;
-    return tok;
+    return m_curr_token;
 }
-
 
 void Lexer::lex()
 {
@@ -101,7 +111,7 @@ void Lexer::lex()
         }
         else
         {
-            warning("Ignoring unknown character ", c, "at line ", m_lineno);
+            m_logger->warning("Ignoring unknown character ", c, "at line ", m_lineno);
             m_input.get();
         }
     }
@@ -196,14 +206,14 @@ void Lexer::isStr()
                     m_curr_lexeme.push_back('\\');
                     break;
                 default:
-                    warning("Ignoring bad escape char at ", m_lineno);
+                    m_logger->warning("Ignoring bad escape char at ", m_lineno);
                     m_curr_lexeme.pop_back();
                     break;
             }
         }
         else if (c == '\n')
         {
-            warning("Strings cannot contain newlines at ", m_lineno);
+            m_logger->warning("Strings cannot contain newlines at ", m_lineno);
         }
         else 
         {

@@ -1,25 +1,18 @@
-#include <memory>
-
 #include <common/token.h>
-#include <lexer/lexer.h>
+#include "driver/driver.h"
+
+#include <memory>
 
 int warnings = 0;
 int main (int argc, char *argv[])
 {
-    std::unique_ptr<Lexer> lexer;
-
-    if (argc == 2)
-        lexer = std::make_unique<Lexer>(argv[1]);
-    else
-        lexer = std::make_unique<Lexer>("/dev/stdin");
-
-    Token tok;
-    while ((tok = lexer->peek()) != Token::T_EOF)
+    if (argc < 2)
     {
-        fprintf(stdout, "Line: %d \t Token: %s \t Lexeme: %s\n", lexer->line(), tokenToStr(tok),
-                lexer->lexeme().c_str());
-        lexer->consume();
+        fprintf(stderr, "Usage: %s [file]\n", argv[0]);
+        exit(1);
     }
 
+    std::unique_ptr<Driver> driver = std::make_unique<Driver>(argv[1]);
+    driver->compile();
     return 0;
 }
