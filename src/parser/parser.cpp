@@ -12,8 +12,6 @@ Parser::~Parser()
 
 bool Parser::parse()
 {
-    // temp
-    //
     Token tok;
     while (true)
     {

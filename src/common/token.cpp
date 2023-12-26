@@ -19,12 +19,15 @@ const char* tokenToStr(Token tok)
         case Token::WHILE:     return "while";
         case Token::BREAK:     return "break";
         case Token::RETURN:    return "return";
+        case Token::GOTO:      return "goto";
         case Token::OPAREN:    return "(";
         case Token::CPAREN:    return ")";
         case Token::OBRCK:     return "{";
         case Token::CBRCK:     return "}";
         case Token::MINUS:     return "-";
         case Token::PLUS:      return "+";
+        case Token::INC:       return "++";
+        case Token::DEC:       return "--";
         case Token::MULT:      return "*";
         case Token::DIV:       return "/";
         case Token::MOD:       return "%";
@@ -43,8 +46,6 @@ const char* tokenToStr(Token tok)
         case Token::BOR:       return "|";
         case Token::COMMA:     return ",";
         case Token::SEMICOL:   return ";";
-        case Token::OSQBRCK:   return "[";
-        case Token::CSQBRCK:   return "]";
         default:               return "NONE";
     }
 }

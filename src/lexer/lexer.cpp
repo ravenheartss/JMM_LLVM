@@ -147,7 +147,8 @@ void Lexer::isReserved()
             {"while",   Token::WHILE},
             {"break",   Token::BREAK},
             {"return",  Token::RETURN},
-            {"str",     Token::STRLIT}
+            {"str",     Token::STRLIT},
+            {"goto",    Token::GOTO}
             });
 
     if (auto it = reserved_words.find(m_curr_lexeme) ; it != reserved_words.end())
@@ -229,8 +230,22 @@ bool Lexer::isOperator()
     auto c = m_input.get();
     switch (c) 
     {
-        case '+':   m_curr_token = Token::PLUS;     break;
-        case '-':   m_curr_token = Token::MINUS;    break;
+        case '+':
+            m_curr_token = Token::PLUS;
+            if (m_input.peek() == '+')
+            {
+                m_curr_token = Token::INC;
+                m_input.get();
+            }
+            break;
+        case '-':   
+            m_curr_token = Token::MINUS;
+            if (m_input.peek() == '-')
+            {
+                m_curr_token = Token::DEC;
+                m_input.get();
+            }
+            break;
         case '/':   m_curr_token = Token::DIV;      break;
         case '*':   m_curr_token = Token::MULT;     break;
         case '%':   m_curr_token = Token::MOD;      break;
@@ -301,8 +316,6 @@ bool Lexer::isSpecial()
         case '}':   m_curr_token = Token::CBRCK;    break;
         case ';':   m_curr_token = Token::SEMICOL;  break;
         case ',':   m_curr_token = Token::COMMA;    break;
-        case '[':   m_curr_token = Token::OSQBRCK;  break;
-        case ']':   m_curr_token = Token::CSQBRCK;  break;
         default:    m_input.unget();         return false;
     }
 

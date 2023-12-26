@@ -1,9 +1,13 @@
 1020
-true, false, boolean, int, void, if, else, while, break, return, str
+true, false, boolean, int, void, if, else, while, break, return, str, goto
 2432
 0343
 // comment
 identifier __id __24
++++
+++
+---
+--
 +
 -
 *
@@ -27,7 +31,6 @@ identifier __id __24
 =
 ()
 {}
-[]
 ;
 ,
 "wowo\b\f\r\t\n\\\'\""
