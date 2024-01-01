@@ -373,7 +373,9 @@ expression              : assignmentexpression
 
 #### LL(1) J-- Grammar:
 
-The original grammar above is ***not*** LL(1) and it cannot be converted to LL(1) with all of the rules intact.
+Okay, before everyone starts yelling: No, the grammar is not really LL(1). And it cannot be converted to one!!! The dangling else problem! However, it is easy to parse the grammar using a predictive parser (recursive descent without backtracking).
+
+Neither the original grammar above nor the one below is LL(1). It cannot be converted to LL(1) with all of the rules intact.
 The assignment expression will have to take a hit here, which is fine. Since there are two rules that lead to the same non-terminal (`ID`) from `assignmentexpression`, there is a clash in the parse table. So, it is not possible to build a predictive parser for a grammar that is not LL(1). Making it LL(1) would allow incorrect assignment expressions. This is perfectly fine and will be caught in semantic analysis.
 
 <details>
@@ -935,13 +937,14 @@ retstmtf    : expression SEMCOL
             ;
 
 ifstmtf     : statement
-            | ELSE statement
+            | statement ELSE statement
             ;
 
 statementexpression : identifier statementexpressionf
-                    | assignment
-                    | functioninvocation
-                    ;
+
+statementexpressionf    : assignment
+                        | functioninvocation
+                        ;
 
 primary : literal
         | OPAREN expression CPAREN
@@ -1080,5 +1083,103 @@ expression  : assignmentexpression
 <summary<b>LL(1) Grammar in EBNF</b></summary>
 
 ```EBNF
+start   = { globaldeclaration } .
+
+literal = NUMBER | STRING | TRUE | FALSE .
+
+type    = BOOLEAN | INT | STR .
+
+globaldeclaration   = type identifier [ OPAREN functiondeclarator ] SEMCOL
+                    | VOID identifier OPAREN functiondeclarator
+                    | mainfunctiondeclaration .
+
+variabledeclaration = type identifier SEMCOL
+
+identifier  = ID .
+
+functiondeclarator  = [ [formalparameterlist ] CPAREN ] .
+
+formalparameterlist = formalparameter { COMMA formalparameter } .
+
+formalparameter = type identifier .
+
+mainfunctiondeclaration = mainfunctiondeclarator block .
+
+mainfunctiondeclarator  = identifier OPAREN CPAREN .
+
+block   = OBRCK [ blockstatements ] CBRCK .
+
+blockstatements = statement { statement } .
+
+statement   = variabledeclaration | simpleStmt | returnStmt |
+                breakStmt | block | ifStmt | gotoStmt | whileStmt .
+
+simpleStmt  = nullStmt | exprStmt .
+
+nullStmt    = SEMCOL .
+
+exprStmt    = identifier ( assignment | functioninvocation ) SEMCOL .
+
+returnStmt  = RETURN [ expression ] SEMCOL .
+
+breakStmt   = BREAK SEMCOL .
+
+ifStmt      = IF OPAREN expression CPAREN statement [ ELSE statement ] .
+
+gotoStmt    = GOTO expression SEMCOL .
+
+whileStmt   = WHILE OPAREN expression CPAREN statement .
+
+primary     = literal | OPAREN expression CPAREN .
+
+argumentlist    = expression { COMMA expression } .
+
+functioninvocation  = OPAREN [ argumentlist ] CPAREN .
+
+postfixexpression   = primary postfixexpression1
+                    | identifier [ functioninvocation ] postfixexpression1 .
+
+postfixexpression1  = [ ( INC | DEC ) [ postfixexpression1 ] ] .
+
+unaryexpression = ( MINUS | NOT | INC | DEC ) unaryexpression | postfixexpression .
+
+multiplicativeexpression    = unaryexpression { mult_op unaryexpression } .
+
+mult_op = MULT | DIV | MOD .
+
+additiveexpression  = multiplicativeexpression { add_op multiplicativeexpression } .
+
+add_op = PLUS | MINUS .
+
+shift_op = LSHIFT | RSHIFT .
+
+shiftexpression = additiveexpression { shift_op additiveexpression } .
+
+rel_op = LT | GT | LE | GE .
+
+relationalexpression    = shiftexpression { rel_op shiftexpression } .
+
+eq_op = EQ | NE .
+
+equalityexpression  = relationalexpression { eq_op relationalexpression } .
+
+
+bitwiseandexpression    = equalityexpression { BAND equalityexpression } .
+
+exclusiveorexpression   = bitwiseandexpression { XOR bitwiseandexpression } .
+
+bitwiseorexpreession    = exclusiveorexpression { BOR exclusiveorexpression } .
+
+conditionalandexpression = bitwiseorexpreession { LAND bitwiseorexpreession } .
+
+conditionalorexpression = conditionalandexpression { LOR conditionalandexpression } .
+
+assignmentexpression    = conditionalorexpression { ASS conditionalorexpression } .
+
+assignment  = ASS assignmentexpression .
+
+expression  = assignmentexpression .
 
 ```
+ 
+</details>
