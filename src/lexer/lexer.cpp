@@ -41,12 +41,8 @@ Token Lexer::peek()
     return m_curr_token;
 }
 
-Token Lexer::match(Token expected)
+Token Lexer::consume()
 {
-    if (peek() != expected)
-    {
-        m_logger->error("Expected ", tokenToStr(expected), " but got ", tokenToStr(peek()));
-    }
     m_consumed = true;
     return m_curr_token;
 }

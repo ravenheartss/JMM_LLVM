@@ -22,6 +22,8 @@ class Parser
         std::unique_ptr<ASTNode>    m_ast;
         std::shared_ptr<Logger>     m_logger;
 
+        // void start();
+
 };
 
 #endif // !JMM_PARSER_H

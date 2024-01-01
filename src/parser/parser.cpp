@@ -12,11 +12,12 @@ Parser::~Parser()
 
 bool Parser::parse()
 {
+    // start();
     Token tok;
     while (true)
     {
         tok = m_lexer->peek();
-        m_lexer->match(tok);
+        m_lexer->consume();
         if (tok == Token::T_EOF) break;
     }
 

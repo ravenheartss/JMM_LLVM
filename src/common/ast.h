@@ -12,7 +12,7 @@
 class ASTNode
 {
     public:
-        enum class NType 
+        enum class NType
         {
             Prog,
             Stmt,
@@ -20,7 +20,7 @@ class ASTNode
             Decl
         };
 
-        enum class StmtType 
+        enum class StmtType
         {
             If,
             IfElse,
@@ -32,7 +32,7 @@ class ASTNode
             Null
         };
 
-        enum class ExprType 
+        enum class ExprType
         {
             Id,
             Lit,     // Integer, String, Boolean
@@ -45,7 +45,7 @@ class ASTNode
             Actual
         };
 
-        enum class DeclType 
+        enum class DeclType
         {
             Func,
             MFunc,  // Main function
