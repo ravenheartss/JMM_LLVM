@@ -16,7 +16,7 @@ class Lexer
         Token peek();
         Token consume();
 
-        const std::string& lexeme() { return {m_curr_lexeme}; };
+        std::string lexeme() { return {m_curr_lexeme}; };
         uint32_t line() { return m_lineno; }
 
     private:
