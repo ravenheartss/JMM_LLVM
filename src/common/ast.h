@@ -3,7 +3,9 @@
 
 #include <string>
 #include <variant>
-#include <utility>
+#include <vector>
+#include <memory>
+#include <optional>
 #include "token.h"
 
 // Easiest way is to just have one class Node and have enum types
@@ -145,23 +147,17 @@ class ASTNode
         std::variant<StmtType,ExprType,DeclType> kind;
         std::variant<std::string,int32_t,bool> value;
         std::optional<VType> val_type; // Types
-        std::optional<Token> op;   // For operators
+        std::optional<Op> op;   // For operators
         uint32_t line;
 
         // Idk. Maybe unique? But not possible since if it is unique, each node will have it
-        // unique pointers to children but then since the child can access it's immediate sibling,
+        // unique pointers to children but then since the child can access its immediate sibling,
         // it would be a violation
         std::vector<std::shared_ptr<ASTNode>> children; 
         std::shared_ptr<ASTNode> sibling; 
 };
 
 
-// Version 2 -- using oop and visitor design
-
-// class AST;
-//     class Prog;
-//     class Expr;
-//     class Stmt;
 
 
 #endif // !JMM_AST_H

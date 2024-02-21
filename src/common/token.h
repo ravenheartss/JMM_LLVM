@@ -35,6 +35,8 @@ enum class Token
     LT,
     GTEQ,
     LTEQ,
+    LSHIFT,
+    RSHIFT,
     EQ,
     NOT,
     NEQ,

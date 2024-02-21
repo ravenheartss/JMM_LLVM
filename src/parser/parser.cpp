@@ -20,6 +20,33 @@ inline nodePtr makeNode(NType ntype, std::variant<StmtType,DeclType,ExprType> nk
     return std::make_shared<ASTNode>(ntype, nkind);
 }
 
+Op tokenToOp(Token tok)
+{
+    switch (tok)
+    {
+        case Token::MINUS:      return Op::SUB;
+        case Token::PLUS:       return Op::ADD;
+        case Token::MULT:       return Op::MULT;
+        case Token::DIV:        return Op::DIV;
+        case Token::MOD:        return Op::MOD;
+        case Token::XOR:        return Op::XOR;
+        case Token::GT:         return Op::GT;
+        case Token::LT:         return Op::LT;
+        case Token::GTEQ:       return Op::GE;
+        case Token::LTEQ:       return Op::LE;
+        case Token::LSHIFT:     return Op::LSHIFT;
+        case Token::RSHIFT:     return Op::RSHIFT;
+        case Token::EQ:         return Op::EQ;
+        case Token::NOT:        return Op::NOT;
+        case Token::NEQ:        return Op::NE;
+        case Token::LAND:       return Op::LAND;
+        case Token::LOR:        return Op::LOR;
+        case Token::BAND:       return Op::BAND;
+        case Token::BOR:        return Op::BOR;
+        default:                return Op::PREINC; // error
+    }
+}
+
 Parser::~Parser()
 {
     m_logger.reset();
@@ -246,7 +273,7 @@ nodePtr Parser::ifStmt()
         node->children.push_back(std::move(elseblock));
     }
 
-    return node;
+    return std::move(node);
 
 }
 
@@ -378,110 +405,545 @@ nodePtr Parser::postfixexpression()
         node = makeNode(NType::Expr);
         while (true)
         {
-            if (match(Token::INC))
+            if (match(Token::INC) || match(Token::DEC))
             {
-                auto toAdd = makeNode(NType::Expr, ExprType::Assign);
                 node->kind = ExprType::Unary;
                 node->line = m_lexer->line();
-                node->op = Token::INC;
-                node->children.push_back(temp);
-
-                break;
-            }
-            else if (match(Token::DEC))
-            {
+                node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
+                node->children.push_back(std::move(temp));
             }
             else
             {
+                node.reset();
+                node = std::move(temp);
+                temp.reset();
                 break;
             }
         }
     }
     else if (temp = identifier(), temp)
     {
-        auto invoc = functioninvocation();
-        if (invoc)
+        // just returns the actuals
+        auto args = functioninvocation();
+        if (args)
         {
+            node = makeNode(NType::Expr, ExprType::FuncCall);
+            node->children.push_back(std::move(temp));
+            node->children.push_back(std::move(args));
+
+            temp.reset();
+            temp = std::move(node);
+            node.reset();
         }
-        else
+
+        node = makeNode(NType::Expr);
+        while (true)
         {
+            if (match(Token::INC) || match(Token::DEC))
+            {
+                node->kind = ExprType::Unary;
+                node->line = m_lexer->line();
+                node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
+                node->children.push_back(std::move(temp));
+            }
+            else
+            {
+                node.reset();
+                node = std::move(temp);
+                temp.reset();
+                break;
+            }
         }
     }
     else
     {
+        error("a primary or identifier");
     }
 
+    return std::move(node);
 }
 
 // unaryexpression = ( MINUS | NOT | INC | DEC ) unaryexpression | postfixexpression .
 nodePtr Parser::unaryexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = makeNode(NType::Expr, ExprType::Unary);
+    if (match(Token::MINUS) || match(Token::NOT) || match(Token::INC) || match(Token::DEC))
+    {
+        node->op = [this->m_lexer](){
+            switch(m_lexer->current())
+            {
+                case Token::MINUS:  return Op::SUB;
+                case Token::NOT:    return Op::NOT;
+                case Token::INC:    return Op::PREINC;
+                case Token::DEC:    return Op::PREDEC;
+                default:
+                    error("Failed to convert Token to Operator. Oops! Something is seriously wrong!");
+            }
+        }();
+        node->line = m_lexer->line();
+        temp = unaryexpression();
+        if (!temp)
+            error("a unary expression");
+        node->children.push_back(std::move(temp));
+    }
+    else
+    {
+        node.reset();
+        node = postfixexpression();
+    }
+    return std::move(node);
 }
 
 // multiplicativeexpression = unaryexpression { mult_op unaryexpression } .
+// mult_op = MULT | DIV | MOD .
 nodePtr Parser::multiplicativeexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = unaryexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::MULT) || !match(Token::DIV) || !match(Token::MOD))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = tokenToOp(m_lexer->current());
+
+        auto rhs = unaryexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::MULT) || !match(Token::DIV) || !match(Token::MOD))
+            break;
+    }
+
+    return std::move(node);
+
 }
 
 // additiveexpression = multiplicativeexpression { add_op multiplicativeexpression } .
+// add_op = PLUS | MINUS .
 nodePtr Parser::additiveexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = multiplicativeexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::PLUS) || !match(Token::MINUS))
+        return std::move(node);
+
+    while (true)
+    {
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = tokenToOp(m_lexer->current());
+
+        auto rhs = multiplicativeexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::PLUS) || !match(Token::MINUS))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // shiftexpression = additiveexpression { shift_op additiveexpression } .
+// shift_op = LSHIFT | RSHIFT .
 nodePtr Parser::shiftexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = additiveexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::LSHIFT) || !match(Token::RSHIFT))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Bitwise);
+        temp->line = m_lexer->line();
+        temp->op = tokenToOp(m_lexer->current());
+
+        auto rhs = additiveexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::LSHIFT) || !match(Token::RSHIFT))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // relationalexpression = shiftexpression { rel_op shiftexpression } .
+// rel_op = LT | GT | LE | GE .
 nodePtr Parser::relationalexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = shiftexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::GT) || !match(Token::LT) || !match(Token::LTEQ) || !match(Token::GTEQ))
+        return std::move(node);
+
+    while (true)
+    {
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = tokenToOp(m_lexer->current());
+
+        auto rhs = shiftexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::GT) || !match(Token::LT)
+                || !match(Token::LTEQ) || !match(Token::GTEQ))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // equalityexpression = relationalexpression { eq_op relationalexpression } .
+// eq_op = EQ | NE .
 nodePtr Parser::equalityexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = relationalexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::EQ) || !match(Token::NEQ))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = tokenToOp(m_lexer->current());
+
+        auto rhs = relationalexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::EQ) || !match(Token::NEQ))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // bitwiseandexpression = equalityexpression { BAND equalityexpression } .
 nodePtr Parser::bitwiseandexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = equalityexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::BAND))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Bitwise);
+        temp->line = m_lexer->line();
+        temp->op = Op::BAND;
+
+        auto rhs = equalityexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::BAND))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // exclusiveorexpression = bitwiseandexpression { XOR bitwiseandexpression } .
 nodePtr Parser::xorexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = bitwiseandexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::XOR))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Bitwise);
+        temp->line = m_lexer->line();
+        temp->op = Op::XOR;
+
+        auto rhs = bitwiseandexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::XOR))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // bitwiseorexpreession = exclusiveorexpression { BOR exclusiveorexpression } .
 nodePtr Parser::bitwiseorexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = xorexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::BOR))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Bitwise);
+        temp->line = m_lexer->line();
+        temp->op = Op::BOR;
+
+        auto rhs = xorexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::BOR))
+            break;
+    }
+
+    return std::move(node);
 }
 
 
 // conditionalandexpression = bitwiseorexpreession { LAND bitwiseorexpreession } .
 nodePtr Parser::conditionalandexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = bitwiseorexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::LAND))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = Op::LAND;
+
+        auto rhs = bitwiseorexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::LAND))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // conditionalorexpression = conditionalandexpression { LOR conditionalandexpression } .
 nodePtr Parser::conditionalorexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = conditionalandexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::LOR))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Binary);
+        temp->line = m_lexer->line();
+        temp->op = Op::LOR;
+
+        auto rhs = conditionalandexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::LOR))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // assignmentexpression    = conditionalorexpression { ASS conditionalorexpression } .
 nodePtr Parser::assignmentexpression()
 {
+    nodePtr node(nullptr);
+    nodePtr temp(nullptr);
+
+    node = conditionalorexpression();
+
+    if (!node)
+        error("an expression");
+
+    if (!match(Token::ASSIGN))
+        return std::move(node);
+
+    while (true)
+    {
+
+        temp = makeNode(NType::Expr, ExprType::Assign);
+        temp->line = m_lexer->line();
+
+        auto rhs = conditionalorexpression();
+
+        if (!rhs)
+            error("an expression");
+
+        temp->children.push_back(node); // lhs
+        temp->children.push_back(rhs);
+
+        node = std::move(temp);
+        temp.reset();
+
+        if (!match(Token::ASSIGN))
+            break;
+    }
+
+    return std::move(node);
 }
 
 // assignment  = ASS assignmentexpression .
 nodePtr Parser::assignment()
 {
+    if (!match(Token::ASSIGN))
+        error("an assignment (==)");
+
+    return assignmentexpression();
 }
 
 // expression  = assignmentexpression .
 nodePtr Parser::expression()
 {
+    return assignmentexpression();
 }
 
 // statement = variabledeclaration | simpleStmt | returnStmt |

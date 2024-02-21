@@ -6,6 +6,7 @@
 #include "common/token.h"
 #include <string>
 #include <fstream>
+#include <memory>
 
 class Lexer 
 {
@@ -15,6 +16,7 @@ class Lexer
 
         Token peek();
         Token consume();
+        Token current() { return m_curr_token; }
 
         std::string lexeme() { return {m_curr_lexeme}; };
         uint32_t line() { return m_lineno; }

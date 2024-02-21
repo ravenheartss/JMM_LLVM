@@ -6,6 +6,8 @@
 #include <cctype>
 #include <fstream>
 #include <memory>
+#include <cstring>
+#include <unordered_map>
 
 Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger> &logger)
     : m_curr_lexeme()
@@ -14,7 +16,7 @@ Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger> &logger)
     , m_filename(filename)
     , m_logger(logger)
 {
-    m_input = std::ifstream(filename);
+    m_input = std::ifstream(std::string(filename));
     if (!m_input.is_open())
         m_logger->error("Failed to open file.\n", std::strerror(errno));
 }
@@ -253,12 +255,22 @@ bool Lexer::isOperator()
                 m_curr_token = Token::LTEQ;
                 m_input.get();
             }
+            else if (m_input.peek() == '<')
+            {
+                m_curr_token = Token::LSHIFT;
+                m_input.get();
+            }
             break;
         case '>':
             m_curr_token = Token::GT;
             if (m_input.peek() == '=')
             {
                 m_curr_token = Token::GTEQ;
+                m_input.get();
+            }
+            else if (m_input.peek() == '>')
+            {
+                m_curr_token = Token::RSHIFT;
                 m_input.get();
             }
             break;

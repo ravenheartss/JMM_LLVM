@@ -4,6 +4,8 @@
 #include "common/ast.h"
 #include "common/jmm.h"
 #include "common/errwarn.h"
+
+#include <optional>
 #include <memory>
 
 class Parser 
