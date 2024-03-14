@@ -6,17 +6,17 @@
 #include <memory>
 #include <optional>
 
-using nodePtr = std::shared_ptr<ASTNode>;
+using nodePtr = std::unique_ptr<ASTNode>;
 
 // Helper functions
 inline nodePtr makeNode(NType ntype)
 {
-    return std::make_shared<ASTNode>(ntype);
+    return std::make_unique<ASTNode>(ntype);
 }
 
 inline nodePtr makeNode(NType ntype, std::variant<StmtType,ExprType,DeclType> nkind)
 {
-    return std::make_shared<ASTNode>(ntype, nkind);
+    return std::make_unique<ASTNode>(ntype, nkind);
 }
 
 Op tokenToOp(Token tok)
@@ -198,25 +198,8 @@ nodePtr Parser::exprStmt()
 
     auto temp = expression();
 
-    // auto id = identifier();
-    // if (!id)
-    //     return std::move(node);
-    //
-    // switch (m_lexer->peek()) 
-    // {
-    //     case Token::ASSIGN:
-    //         node = assignment();
-    //         break;
-    //     case Token::OPAREN:
-    //         node = functioninvocation();
-    //         break;
-    //     default:
-    //         break;
-    // }
-
     if (!temp)
         return nullptr;
-    //     error("assignment or function invocation");
 
     node = makeNode(NType::Stmt, StmtType::Expr);
     node->children.push_back(std::move(temp));
@@ -464,10 +447,6 @@ nodePtr Parser::postfixexpression()
             }
         }
     }
-    // else
-    // {
-    //     error("a primary or identifier");
-    // }
 
     return std::move(node);
 }
@@ -518,7 +497,6 @@ nodePtr Parser::multiplicativeexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::MULT) && !match(Token::DIV) && !match(Token::MOD))
         return std::move(node);
@@ -535,8 +513,8 @@ nodePtr Parser::multiplicativeexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -560,7 +538,6 @@ nodePtr Parser::additiveexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::PLUS)  && !match(Token::MINUS))
         return std::move(node);
@@ -576,8 +553,8 @@ nodePtr Parser::additiveexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -600,7 +577,6 @@ nodePtr Parser::shiftexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::LSHIFT) && !match(Token::RSHIFT))
         return std::move(node);
@@ -617,8 +593,8 @@ nodePtr Parser::shiftexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -641,7 +617,6 @@ nodePtr Parser::relationalexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::GT) && !match(Token::LT) && !match(Token::LTEQ) && !match(Token::GTEQ))
         return std::move(node);
@@ -657,8 +632,8 @@ nodePtr Parser::relationalexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -682,7 +657,6 @@ nodePtr Parser::equalityexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::EQ) && !match(Token::NEQ))
         return std::move(node);
@@ -699,8 +673,8 @@ nodePtr Parser::equalityexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -722,7 +696,6 @@ nodePtr Parser::bitwiseandexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::BAND))
         return std::move(node);
@@ -739,8 +712,8 @@ nodePtr Parser::bitwiseandexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -762,7 +735,6 @@ nodePtr Parser::xorexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::XOR))
         return std::move(node);
@@ -779,8 +751,8 @@ nodePtr Parser::xorexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -802,7 +774,6 @@ nodePtr Parser::bitwiseorexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::BOR))
         return std::move(node);
@@ -819,8 +790,8 @@ nodePtr Parser::bitwiseorexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -843,7 +814,6 @@ nodePtr Parser::conditionalandexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::LAND))
         return std::move(node);
@@ -860,8 +830,8 @@ nodePtr Parser::conditionalandexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -883,7 +853,6 @@ nodePtr Parser::conditionalorexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::LOR))
         return std::move(node);
@@ -900,8 +869,8 @@ nodePtr Parser::conditionalorexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -923,7 +892,6 @@ nodePtr Parser::assignmentexpression()
 
     if (!node)
         return nullptr;
-        // error("an expression");
 
     if (!match(Token::ASSIGN))
         return std::move(node);
@@ -939,8 +907,8 @@ nodePtr Parser::assignmentexpression()
         if (!rhs)
             error("an expression");
 
-        temp->children.push_back(node); // lhs
-        temp->children.push_back(rhs);
+        temp->children.push_back(std::move(node)); // lhs
+        temp->children.push_back(std::move(rhs));
 
         node = std::move(temp);
         temp.reset();
@@ -955,9 +923,6 @@ nodePtr Parser::assignmentexpression()
 // assignment  = assignmentexpression .
 nodePtr Parser::assignment()
 {
-    // if (!match(Token::ASSIGN))
-    //     error("an assignment (==)");
-    //
     return std::move(assignmentexpression());
 }
 
@@ -1079,26 +1044,6 @@ nodePtr Parser::functiondeclarator()
 
     return std::move(params);
 }
-
-// functiondeclaration  = functiondeclarator block .
-// nodePtr Parser::functiondeclaration()
-// {
-//     auto node = functiondeclarator();
-//     if (!node)
-//         return;
-//
-//     // if parsing params was successful, it is a function declaration
-//     // so add params to current_node's children
-//     m_current_node->children.push_back(std::move(node));
-//     node.reset();
-//
-//     node = block();
-//     if (!node)
-//         error("function body");
-//
-//     m_current_node->children.push_back(std::move(node));
-//
-// }
 
 // mainfunctiondeclaration = id OPAREN CPAREN block .
 void Parser::mainfunctiondeclaration()

@@ -27,11 +27,10 @@ Driver::~Driver()
 bool Driver::compile()
 {
     int err = m_parser->parse();
-    if (err)
-    {
-        m_ast = m_parser->getAST();
-        m_ast->print(0);
-    }
+    m_ast = m_parser->getAST();
+#ifdef PARSER_DEBUG
+    m_ast->print();
+#endif
 
     return err;
 }

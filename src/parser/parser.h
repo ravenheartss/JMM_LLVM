@@ -11,7 +11,7 @@
 
 class Parser 
 {
-    using nodePtr = std::shared_ptr<ASTNode>;
+    using nodePtr = std::unique_ptr<ASTNode>;
     public:
         Parser(std::shared_ptr<Lexer>& lexer, std::shared_ptr<Logger>& logger) 
             : m_lexer(lexer), m_logger(logger) { }
@@ -27,7 +27,7 @@ class Parser
         std::shared_ptr<Logger>     m_logger;
 
         // Current global declaration
-        std::shared_ptr<ASTNode>    m_current_node; 
+        std::unique_ptr<ASTNode>    m_current_node; 
 
         bool match(Token expected);
 
@@ -38,7 +38,6 @@ class Parser
         nodePtr identifier();
         nodePtr block();
         nodePtr blockstatements();
-        // nodePtr functiondeclaration();
         nodePtr statement();
         nodePtr expression();
         nodePtr variabledeclaration();

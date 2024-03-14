@@ -6,9 +6,9 @@
 
 // There are wayy better ways to print the tree but this is just for debug
 
-void Printer(StmtType stmt, std::shared_ptr<ASTNode> node, int indent);
-void Printer(ExprType expr, std::shared_ptr<ASTNode> node, int indent);
-void Printer(DeclType decl, std::shared_ptr<ASTNode> node, int indent);
+void Printer(StmtType stmt, std::unique_ptr<ASTNode> &node, int indent);
+void Printer(ExprType expr, std::unique_ptr<ASTNode> &node, int indent);
+void Printer(DeclType decl, std::unique_ptr<ASTNode> &node, int indent);
 
 
 struct ValueVisitor
@@ -39,7 +39,7 @@ void ASTNode::print(int indent)
         default:                                        break;
     }
 
-    for (auto child : children)
+    for (auto &child : children)
     {
         switch (child->type) 
         {
@@ -52,7 +52,7 @@ void ASTNode::print(int indent)
 }
 
 
-void Printer(StmtType stmt, std::shared_ptr<ASTNode> node, int indent)
+void Printer(StmtType stmt, std::unique_ptr<ASTNode> &node, int indent)
 {
     std::cout << std::string(indent, '\t');
     switch(stmt)
@@ -75,7 +75,7 @@ void Printer(StmtType stmt, std::shared_ptr<ASTNode> node, int indent)
 
     std::cout << '\n';
 
-    for (auto child : node->children)
+    for (auto &child : node->children)
     {
         switch (child->type) 
         {
@@ -87,7 +87,7 @@ void Printer(StmtType stmt, std::shared_ptr<ASTNode> node, int indent)
     }
 }
 
-void Printer(ExprType expr, std::shared_ptr<ASTNode> node, int indent)
+void Printer(ExprType expr, std::unique_ptr<ASTNode> &node, int indent)
 {
     std::cout << std::string(indent, '\t');
     switch(expr)
@@ -160,7 +160,7 @@ void Printer(ExprType expr, std::shared_ptr<ASTNode> node, int indent)
 
     std::cout << '\n';
 
-    for (auto child : node->children)
+    for (auto &child : node->children)
     {
         switch (child->type) 
         {
@@ -174,7 +174,7 @@ void Printer(ExprType expr, std::shared_ptr<ASTNode> node, int indent)
     //     std::visit(Visitor{}, child->kind, child, indent+1);
 }
 
-void Printer(DeclType decl, std::shared_ptr<ASTNode> node, int indent)
+void Printer(DeclType decl, std::unique_ptr<ASTNode> &node, int indent)
 {
     std::cout << std::string(indent, '\t');
     switch(decl)
@@ -210,7 +210,7 @@ void Printer(DeclType decl, std::shared_ptr<ASTNode> node, int indent)
 
     std::cout << '\n';
 
-    for (auto child : node->children)
+    for (auto &child : node->children)
     {
         switch (child->type) 
         {

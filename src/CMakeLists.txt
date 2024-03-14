@@ -16,5 +16,6 @@ add_executable(jmm
 
 
 add_compile_definitions($<$<CONFIG:DEBUG>:LEXER_DEBUG>)
+add_compile_definitions($<$<CONFIG:DEBUG>:PARSER_DEBUG>)
 target_include_directories(jmm PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
