@@ -1,0 +1,82 @@
+
+int check()
+{
+}
+
+boolean what()
+{
+}
+
+void nope()
+{
+}
+
+str whatisthis()
+{
+    int x;
+    x = 20 + 23087 - 2946 * 284 / 247;
+    int y;
+    int z;
+    int a;
+    a = y = z = x;
+    a++;
+    z++;
+    ++a;
+    --a;
+    --z;
+    --y;
+    a++++;
+    ++++a;
+    a----;
+    ----a;
+
+    a = z ^ y;
+    x = y & a;
+    z = y | x;
+
+    if (a)
+    {
+        return;
+    }
+    if (x)
+    {
+        return 24;
+    }
+
+    if (true && false || a)
+    {
+        nope();
+    }
+
+    add(1,2,3,4);
+
+    boolean p;
+    p = true;
+    p = false;
+
+    while (2)
+        {
+        }
+        {}
+        {
+            int y;
+        }
+
+    {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{(2412-(24+(3432*24-(987-(24+(3453*(324*(424/(5345+(1+(1+(23423*24))))))))))));}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+}
+
+int add(int x, int y, str z)
+{
+    return x+y;`
+}
+
+main()
+{
+    return "string here";
+}
+
+int x;
+boolean y;
+str z;
+
+

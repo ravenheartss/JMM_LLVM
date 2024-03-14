@@ -18,12 +18,15 @@ enum class Token
     WHILE,
     BREAK,
     RETURN,
+    GOTO,
     OPAREN,
     CPAREN,
     OBRCK,
     CBRCK,
     MINUS,
     PLUS,
+    INC,
+    DEC,
     MULT,
     DIV,
     MOD,
@@ -32,6 +35,8 @@ enum class Token
     LT,
     GTEQ,
     LTEQ,
+    LSHIFT,
+    RSHIFT,
     EQ,
     NOT,
     NEQ,
@@ -42,8 +47,6 @@ enum class Token
     BOR,
     COMMA,
     SEMICOL,
-    OSQBRCK,
-    CSQBRCK
 };
 
 const char* tokenToStr(Token tok);

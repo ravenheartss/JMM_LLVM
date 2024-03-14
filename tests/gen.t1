@@ -1,0 +1,10 @@
+main() {
+	prints("Hello, world!\n");
+	j = 13;
+    int x;
+	x = 24;
+}
+
+int j;
+
+void tem() {}

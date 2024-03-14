@@ -1,26 +1,31 @@
 
 #include "lexer.h"
 #include "common/token.h"
-#include <common/errwarn.h>
+#include "common/errwarn.h"
+
 #include <cctype>
 #include <fstream>
+#include <memory>
+#include <cstring>
+#include <unordered_map>
 
-Lexer::Lexer(std::string filename)
+Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger> &logger)
     : m_curr_lexeme()
     , m_consumed(true)
     , m_lineno(1)
     , m_filename(filename)
+    , m_logger(logger)
 {
-    m_input = std::ifstream(filename);
+    m_input = std::ifstream(std::string(filename));
     if (!m_input.is_open())
-        error("Failed to open file.\n", std::strerror(errno));
+        m_logger->error("Failed to open file.\n", std::strerror(errno));
 }
 
 Lexer::~Lexer()
 {
     m_curr_lexeme.clear();
     m_input.close();
-    m_filename.clear();
+    m_logger.reset();
 }
 
 Token Lexer::peek()
@@ -30,16 +35,19 @@ Token Lexer::peek()
 
     lex();
     m_consumed = false;
+
+#ifdef LEXER_DEBUG
+    fprintf(stderr, "Line: %d \t Token: %s \t Lexeme: %s\n", m_lineno, tokenToStr(m_curr_token),
+            m_curr_lexeme.c_str());
+#endif
     return m_curr_token;
 }
 
 Token Lexer::consume()
 {
-    Token tok = peek();
     m_consumed = true;
-    return tok;
+    return m_curr_token;
 }
-
 
 void Lexer::lex()
 {
@@ -82,8 +90,10 @@ void Lexer::lex()
             }
             else
             {
+                // m_curr_token = Token::DIV;      break;
                 m_input.unget();
                 isOperator(); // If not it's an operator
+                return;
             }
         }
         else if (isSpecial())
@@ -101,7 +111,7 @@ void Lexer::lex()
         }
         else
         {
-            warning("Ignoring unknown character ", c, "at line ", m_lineno);
+            m_logger->warning("Ignoring unknown character ", c, "at line ", m_lineno);
             m_input.get();
         }
     }
@@ -137,7 +147,8 @@ void Lexer::isReserved()
             {"while",   Token::WHILE},
             {"break",   Token::BREAK},
             {"return",  Token::RETURN},
-            {"str",     Token::STRLIT}
+            {"str",     Token::STR},
+            {"goto",    Token::GOTO}
             });
 
     if (auto it = reserved_words.find(m_curr_lexeme) ; it != reserved_words.end())
@@ -196,14 +207,14 @@ void Lexer::isStr()
                     m_curr_lexeme.push_back('\\');
                     break;
                 default:
-                    warning("Ignoring bad escape char at ", m_lineno);
+                    m_logger->warning("Ignoring bad escape char at ", m_lineno);
                     m_curr_lexeme.pop_back();
                     break;
             }
         }
         else if (c == '\n')
         {
-            warning("Strings cannot contain newlines at ", m_lineno);
+            m_logger->warning("Strings cannot contain newlines at ", m_lineno);
         }
         else 
         {
@@ -219,8 +230,22 @@ bool Lexer::isOperator()
     auto c = m_input.get();
     switch (c) 
     {
-        case '+':   m_curr_token = Token::PLUS;     break;
-        case '-':   m_curr_token = Token::MINUS;    break;
+        case '+':
+            m_curr_token = Token::PLUS;
+            if (m_input.peek() == '+')
+            {
+                m_curr_token = Token::INC;
+                m_input.get();
+            }
+            break;
+        case '-':   
+            m_curr_token = Token::MINUS;
+            if (m_input.peek() == '-')
+            {
+                m_curr_token = Token::DEC;
+                m_input.get();
+            }
+            break;
         case '/':   m_curr_token = Token::DIV;      break;
         case '*':   m_curr_token = Token::MULT;     break;
         case '%':   m_curr_token = Token::MOD;      break;
@@ -232,12 +257,22 @@ bool Lexer::isOperator()
                 m_curr_token = Token::LTEQ;
                 m_input.get();
             }
+            else if (m_input.peek() == '<')
+            {
+                m_curr_token = Token::LSHIFT;
+                m_input.get();
+            }
             break;
         case '>':
             m_curr_token = Token::GT;
             if (m_input.peek() == '=')
             {
                 m_curr_token = Token::GTEQ;
+                m_input.get();
+            }
+            else if (m_input.peek() == '>')
+            {
+                m_curr_token = Token::RSHIFT;
                 m_input.get();
             }
             break;
@@ -291,8 +326,6 @@ bool Lexer::isSpecial()
         case '}':   m_curr_token = Token::CBRCK;    break;
         case ';':   m_curr_token = Token::SEMICOL;  break;
         case ',':   m_curr_token = Token::COMMA;    break;
-        case '[':   m_curr_token = Token::OSQBRCK;  break;
-        case ']':   m_curr_token = Token::CSQBRCK;  break;
         default:    m_input.unget();         return false;
     }
 
