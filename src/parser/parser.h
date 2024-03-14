@@ -1,6 +1,7 @@
 #ifndef JMM_PARSER_H
 #define JMM_PARSER_H
 
+#include "common/token.h"
 #include "common/ast.h"
 #include "common/jmm.h"
 #include "common/errwarn.h"
@@ -37,7 +38,7 @@ class Parser
         nodePtr identifier();
         nodePtr block();
         nodePtr blockstatements();
-        nodePtr functiondeclaration();
+        // nodePtr functiondeclaration();
         nodePtr statement();
         nodePtr expression();
         nodePtr variabledeclaration();

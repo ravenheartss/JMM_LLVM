@@ -3,6 +3,7 @@
 #include "parser/parser.h"
 #include "lexer/lexer.h"
 #include "common/errwarn.h"
+#include "common/ast.h"
 #include <memory>
 
 
@@ -19,10 +20,18 @@ Driver::~Driver()
     m_lexer.reset();
     m_logger.reset();
     filename.clear();
+    m_ast.reset();
 }
 
 
 bool Driver::compile()
 {
-    return m_parser->parse();
+    int err = m_parser->parse();
+    if (err)
+    {
+        m_ast = m_parser->getAST();
+        m_ast->print(0);
+    }
+
+    return err;
 }

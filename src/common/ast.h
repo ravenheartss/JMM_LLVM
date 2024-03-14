@@ -6,7 +6,6 @@
 #include <vector>
 #include <memory>
 #include <optional>
-#include "token.h"
 
 // Easiest way is to just have one class Node and have enum types
 
@@ -28,8 +27,8 @@ enum class StmtType : uint8_t
     Return,
     Break,
     Block,
-    Assign,
-    Null
+    Expr,
+    Null,
 };
 
 enum class ExprType : uint8_t
@@ -145,17 +144,20 @@ class ASTNode
     public:
         NType type; // node type
         std::variant<StmtType,ExprType,DeclType> kind;
-        std::variant<std::string,int32_t,bool> value;
+        std::variant<std::monostate, std::string,int32_t,bool> value;
         std::optional<VType> val_type; // Types
         std::optional<Op> op;   // For operators
-        uint32_t line;
+        uint32_t line{0};
 
         // Idk. Maybe unique? But not possible since if it is unique, each node will have it
         // unique pointers to children but then since the child can access its immediate sibling,
         // it would be a violation
         std::vector<std::shared_ptr<ASTNode>> children; 
         std::shared_ptr<ASTNode> sibling; 
+        void print(int indent);
+
 };
+
 
 
 

@@ -90,8 +90,10 @@ void Lexer::lex()
             }
             else
             {
+                // m_curr_token = Token::DIV;      break;
                 m_input.unget();
                 isOperator(); // If not it's an operator
+                return;
             }
         }
         else if (isSpecial())
@@ -145,7 +147,7 @@ void Lexer::isReserved()
             {"while",   Token::WHILE},
             {"break",   Token::BREAK},
             {"return",  Token::RETURN},
-            {"str",     Token::STRLIT},
+            {"str",     Token::STR},
             {"goto",    Token::GOTO}
             });
 

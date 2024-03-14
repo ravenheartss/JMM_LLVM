@@ -3,7 +3,6 @@
 #include "common/jmm.h"
 #include "lexer/lexer.h"
 #include "common/token.h"
-#include <limits>
 #include <memory>
 #include <optional>
 
@@ -15,7 +14,7 @@ inline nodePtr makeNode(NType ntype)
     return std::make_shared<ASTNode>(ntype);
 }
 
-inline nodePtr makeNode(NType ntype, std::variant<StmtType,DeclType,ExprType> nkind)
+inline nodePtr makeNode(NType ntype, std::variant<StmtType,ExprType,DeclType> nkind)
 {
     return std::make_shared<ASTNode>(ntype, nkind);
 }
@@ -75,7 +74,7 @@ bool Parser::match(Token expected)
 void Parser::error(std::string expected)
 {
     m_logger->error(m_lexer->line(), ": Expected ", expected,
-            ". Got: '", tokenToStr(m_lexer->peek()), "'");
+            " Got: '", tokenToStr(m_lexer->peek()), "'");
 }
 
 // type = BOOL | INT | STR
@@ -192,28 +191,35 @@ nodePtr Parser::simpleStmt()
 }
 
 // exprStmt = identifier ( assignment | functioninvocation ) SEMCOL .
+// exprStmt = expression SEMCOL .
 nodePtr Parser::exprStmt()
 {
     nodePtr node(nullptr);
 
-    auto id = identifier();
-    if (!id)
-        return std::move(node);
+    auto temp = expression();
 
-    switch (m_lexer->peek()) 
-    {
-        case Token::ASSIGN:
-            node = assignment();
-            break;
-        case Token::OPAREN:
-            node = functioninvocation();
-            break;
-        default:
-            break;
-    }
+    // auto id = identifier();
+    // if (!id)
+    //     return std::move(node);
+    //
+    // switch (m_lexer->peek()) 
+    // {
+    //     case Token::ASSIGN:
+    //         node = assignment();
+    //         break;
+    //     case Token::OPAREN:
+    //         node = functioninvocation();
+    //         break;
+    //     default:
+    //         break;
+    // }
 
-    if (!node)
-        error("assignment or function invocation");
+    if (!temp)
+        return nullptr;
+    //     error("assignment or function invocation");
+
+    node = makeNode(NType::Stmt, StmtType::Expr);
+    node->children.push_back(std::move(temp));
 
     if (!match(Token::SEMICOL))
         error("semicolon");
@@ -360,14 +366,19 @@ nodePtr Parser::argumentlist()
     nodePtr actuals =
         makeNode(NType::Expr, ExprType::Actuals);
 
+    auto actual = expression();
+    if (!actual)
+        return std::move(actuals);
+
     while (true)
     {
+        actual->kind = ExprType::Actual;
+        actuals->children.push_back(std::move(actual));
         if (!match(Token::COMMA))
             break;
-        auto actual = expression();
+        actual = expression();
         if (!actual)
             error("an argument after comma");
-        actuals->children.push_back(std::move(actual));
     }
 
     return std::move(actuals);
@@ -402,21 +413,20 @@ nodePtr Parser::postfixexpression()
 
     if (temp = primary(), temp)
     {
-        node = makeNode(NType::Expr);
         while (true)
         {
             if (match(Token::INC) || match(Token::DEC))
             {
-                node->kind = ExprType::Unary;
+                node = makeNode(NType::Expr, ExprType::Unary);
                 node->line = m_lexer->line();
                 node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
                 node->children.push_back(std::move(temp));
+                temp = std::move(node);
             }
             else
             {
                 node.reset();
                 node = std::move(temp);
-                temp.reset();
                 break;
             }
         }
@@ -436,29 +446,28 @@ nodePtr Parser::postfixexpression()
             node.reset();
         }
 
-        node = makeNode(NType::Expr);
         while (true)
         {
             if (match(Token::INC) || match(Token::DEC))
             {
-                node->kind = ExprType::Unary;
+                node = makeNode(NType::Expr, ExprType::Unary);
                 node->line = m_lexer->line();
                 node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
                 node->children.push_back(std::move(temp));
+                temp = std::move(node);
             }
             else
             {
                 node.reset();
                 node = std::move(temp);
-                temp.reset();
                 break;
             }
         }
     }
-    else
-    {
-        error("a primary or identifier");
-    }
+    // else
+    // {
+    //     error("a primary or identifier");
+    // }
 
     return std::move(node);
 }
@@ -472,7 +481,8 @@ nodePtr Parser::unaryexpression()
     node = makeNode(NType::Expr, ExprType::Unary);
     if (match(Token::MINUS) || match(Token::NOT) || match(Token::INC) || match(Token::DEC))
     {
-        node->op = [this->m_lexer](){
+        // needed for preinc and predec
+        node->op = [this](){
             switch(m_lexer->current())
             {
                 case Token::MINUS:  return Op::SUB;
@@ -507,9 +517,10 @@ nodePtr Parser::multiplicativeexpression()
     node = unaryexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
-    if (!match(Token::MULT) || !match(Token::DIV) || !match(Token::MOD))
+    if (!match(Token::MULT) && !match(Token::DIV) && !match(Token::MOD))
         return std::move(node);
 
     while (true)
@@ -530,7 +541,7 @@ nodePtr Parser::multiplicativeexpression()
         node = std::move(temp);
         temp.reset();
 
-        if (!match(Token::MULT) || !match(Token::DIV) || !match(Token::MOD))
+        if (!match(Token::MULT)  && !match(Token::DIV) && !match(Token::MOD))
             break;
     }
 
@@ -548,9 +559,10 @@ nodePtr Parser::additiveexpression()
     node = multiplicativeexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
-    if (!match(Token::PLUS) || !match(Token::MINUS))
+    if (!match(Token::PLUS)  && !match(Token::MINUS))
         return std::move(node);
 
     while (true)
@@ -570,7 +582,7 @@ nodePtr Parser::additiveexpression()
         node = std::move(temp);
         temp.reset();
 
-        if (!match(Token::PLUS) || !match(Token::MINUS))
+        if (!match(Token::PLUS) && !match(Token::MINUS))
             break;
     }
 
@@ -587,9 +599,10 @@ nodePtr Parser::shiftexpression()
     node = additiveexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
-    if (!match(Token::LSHIFT) || !match(Token::RSHIFT))
+    if (!match(Token::LSHIFT) && !match(Token::RSHIFT))
         return std::move(node);
 
     while (true)
@@ -610,7 +623,7 @@ nodePtr Parser::shiftexpression()
         node = std::move(temp);
         temp.reset();
 
-        if (!match(Token::LSHIFT) || !match(Token::RSHIFT))
+        if (!match(Token::LSHIFT) && !match(Token::RSHIFT))
             break;
     }
 
@@ -627,9 +640,10 @@ nodePtr Parser::relationalexpression()
     node = shiftexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
-    if (!match(Token::GT) || !match(Token::LT) || !match(Token::LTEQ) || !match(Token::GTEQ))
+    if (!match(Token::GT) && !match(Token::LT) && !match(Token::LTEQ) && !match(Token::GTEQ))
         return std::move(node);
 
     while (true)
@@ -649,8 +663,8 @@ nodePtr Parser::relationalexpression()
         node = std::move(temp);
         temp.reset();
 
-        if (!match(Token::GT) || !match(Token::LT)
-                || !match(Token::LTEQ) || !match(Token::GTEQ))
+        if (!match(Token::GT) && !match(Token::LT)
+                && !match(Token::LTEQ) && !match(Token::GTEQ))
             break;
     }
 
@@ -667,9 +681,10 @@ nodePtr Parser::equalityexpression()
     node = relationalexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
-    if (!match(Token::EQ) || !match(Token::NEQ))
+    if (!match(Token::EQ) && !match(Token::NEQ))
         return std::move(node);
 
     while (true)
@@ -690,7 +705,7 @@ nodePtr Parser::equalityexpression()
         node = std::move(temp);
         temp.reset();
 
-        if (!match(Token::EQ) || !match(Token::NEQ))
+        if (!match(Token::EQ) && !match(Token::NEQ))
             break;
     }
 
@@ -706,7 +721,8 @@ nodePtr Parser::bitwiseandexpression()
     node = equalityexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::BAND))
         return std::move(node);
@@ -745,7 +761,8 @@ nodePtr Parser::xorexpression()
     node = bitwiseandexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::XOR))
         return std::move(node);
@@ -784,7 +801,8 @@ nodePtr Parser::bitwiseorexpression()
     node = xorexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::BOR))
         return std::move(node);
@@ -824,7 +842,8 @@ nodePtr Parser::conditionalandexpression()
     node = bitwiseorexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::LAND))
         return std::move(node);
@@ -863,7 +882,8 @@ nodePtr Parser::conditionalorexpression()
     node = conditionalandexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::LOR))
         return std::move(node);
@@ -902,7 +922,8 @@ nodePtr Parser::assignmentexpression()
     node = conditionalorexpression();
 
     if (!node)
-        error("an expression");
+        return nullptr;
+        // error("an expression");
 
     if (!match(Token::ASSIGN))
         return std::move(node);
@@ -931,19 +952,19 @@ nodePtr Parser::assignmentexpression()
     return std::move(node);
 }
 
-// assignment  = ASS assignmentexpression .
+// assignment  = assignmentexpression .
 nodePtr Parser::assignment()
 {
-    if (!match(Token::ASSIGN))
-        error("an assignment (==)");
-
-    return assignmentexpression();
+    // if (!match(Token::ASSIGN))
+    //     error("an assignment (==)");
+    //
+    return std::move(assignmentexpression());
 }
 
 // expression  = assignmentexpression .
 nodePtr Parser::expression()
 {
-    return assignmentexpression();
+    return std::move(assignmentexpression());
 }
 
 // statement = variabledeclaration | simpleStmt | returnStmt |
@@ -952,34 +973,28 @@ nodePtr Parser::statement()
 {
     nodePtr node(nullptr);
 
-    if (node = variabledeclaration(), node)
-    {
-    }
-    else if (node = simpleStmt(), node)
-    {
-    }
-    else if (node = returnStmt(), node)
-    {
-    }
-    else if (match(Token::BREAK))
+    node = variabledeclaration();
+
+    if (!node)
+        node = simpleStmt();
+    if (!node)
+        node = returnStmt();
+    if (!node && match(Token::BREAK))
     {
         node = makeNode(NType::Stmt, StmtType::Break);
         node->line = m_lexer->line();
     }
-    else if (node = block(), node)
-    {
-    }
-    else if (node = ifStmt(), node)
-    {
-    }
-    else if (node = gotoStmt(), node)
-    {
-    }
-    else if (node = whileStmt(), node)
-    {
-    }
+    if (!node)
+        node = block();
+    if (!node)
+        node = ifStmt();
+    if (!node)
+        node = gotoStmt();
+    if (!node)
+        node = whileStmt();
 
     return std::move(node);
+
 }
 
 // block = OBRCK [ blockstatements ] CBRCK .
@@ -987,7 +1002,7 @@ nodePtr Parser::statement()
 nodePtr Parser::block()
 {
     if (!match(Token::OBRCK))
-        error("{");
+        return nullptr;
 
     nodePtr blockNode = 
         makeNode(NType::Stmt, StmtType::Block);
@@ -1000,7 +1015,7 @@ nodePtr Parser::block()
         blockNode->children.push_back(std::move(node));
     }
 
-    if (!match(Token::OBRCK))
+    if (!match(Token::CBRCK))
         error("}");
 
     return std::move(blockNode);
@@ -1031,14 +1046,20 @@ nodePtr Parser::formalparameterlist()
         return std::move(param);
     };
 
+    auto param = formalparameter();
+    if (!param)
+        return std::move(params);
+
     while (true)
     {
+        params->children.push_back(std::move(param));
+
         if (!match(Token::COMMA))
             break;
-        auto param = formalparameter();
+
+        param = formalparameter();
         if (!param)
-            error("a parameter after comma");
-        params->children.push_back(std::move(param));
+            error("a parameter");
     }
 
     return std::move(params);
@@ -1054,22 +1075,30 @@ nodePtr Parser::functiondeclarator()
     nodePtr params = formalparameterlist();
 
     if (!match(Token::CPAREN))
-        error("'('");
+        error("')'");
 
     return std::move(params);
 }
 
 // functiondeclaration  = functiondeclarator block .
-nodePtr Parser::functiondeclaration()
-{
-    auto node = functiondeclarator();
-    if (!node)
-        error("function declaration");
-
-    node = block();
-
-    return std::move(node);
-}
+// nodePtr Parser::functiondeclaration()
+// {
+//     auto node = functiondeclarator();
+//     if (!node)
+//         return;
+//
+//     // if parsing params was successful, it is a function declaration
+//     // so add params to current_node's children
+//     m_current_node->children.push_back(std::move(node));
+//     node.reset();
+//
+//     node = block();
+//     if (!node)
+//         error("function body");
+//
+//     m_current_node->children.push_back(std::move(node));
+//
+// }
 
 // mainfunctiondeclaration = id OPAREN CPAREN block .
 void Parser::mainfunctiondeclaration()
@@ -1102,6 +1131,7 @@ void Parser::mainfunctiondeclaration()
 //      type identifier ( functiondeclarator | SEMCOL )
 //      | VOID identifier functiondeclarator
 //      | mainfunctiondeclaration .
+// functiondeclarator has been expanded here as it's only use is here!
 nodePtr Parser::globaldeclaration()
 {
     m_current_node = makeNode(NType::Decl);
@@ -1120,10 +1150,16 @@ nodePtr Parser::globaldeclaration()
 
         m_current_node->children.push_back(std::move(node));
 
-        if (node = functiondeclaration(), node)
+        if (node = functiondeclarator(), node)
         {
-            m_current_node->kind = DeclType::Func;
             m_current_node->children.push_back(std::move(node));
+
+            node = block();
+            if (!node)
+                error("function body");
+
+            m_current_node->children.push_back(std::move(node));
+            m_current_node->kind = DeclType::Func;
         }
         else
         {
@@ -1143,11 +1179,17 @@ nodePtr Parser::globaldeclaration()
 
         m_current_node->children.push_back(std::move(node));
 
-        if (node = functiondeclaration(), !node)
+        if (node = functiondeclarator(), !node)
             error("function declaration");
 
-        m_current_node->kind = DeclType::Func;
         m_current_node->children.push_back(std::move(node));
+
+        node = block();
+        if (!node)
+            error("function body");
+
+        m_current_node->children.push_back(std::move(node));
+        m_current_node->kind = DeclType::Func;
     }
     else if (m_lexer->peek() == Token::ID) // Main function
     {
@@ -1156,7 +1198,7 @@ nodePtr Parser::globaldeclaration()
     else 
     {
         m_logger->error(m_lexer->line(), 
-                ": Expected either a function or variable declaration.Got: ",
+                ": Expected either a function or variable declaration. Got: ",
                 tokenToStr(m_lexer->peek()));
     }
 

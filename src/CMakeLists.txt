@@ -10,6 +10,7 @@ add_executable(jmm
     main.cpp 
     lexer/lexer.cpp 
     common/token.cpp
+    common/ast.cpp
     driver/driver.cpp
     parser/parser.cpp)
 
