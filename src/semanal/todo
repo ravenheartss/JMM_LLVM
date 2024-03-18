@@ -1,0 +1,15 @@
+No main declaration found.
+Multiple main declarations found.
+A local declaration was not in an outermost block.
+The number/type of arguments in a function call doesn't match the function's declaration.
+The main declaration can't have parameters.
+The main function can't be called.
+Break statements must be inside a while statement.
+Type mismatch for an operator (||, &&, ==, !=, =, <, >, <=, >=, +, - (unary and binary), *, /, %, !, ++, --, &, |, ^, <<, >>).
+No return statement in a non-void function.
+A void function can't return a value.
+A non-void function must return a value.
+A value returned from a function has the wrong type.
+An if- or while-condition must be of Boolean type.
+An identifier is redefined within the same scope.
+An undeclared identifier is used.

@@ -89,9 +89,11 @@ bool Parser::match(Token expected) {
 std::optional<VType> Parser::type() {
   if (match(Token::BOOL)) {
     return VType::Bool;
-  } else if (match(Token::INT)) {
+  }
+  if (match(Token::INT)) {
     return VType::Int;
-  } else if (match(Token::STR)) {
+  }
+  if (match(Token::STR)) {
     return VType::Str;
   }
 
@@ -142,15 +144,15 @@ nodePtr Parser::literal() {
 // variabledeclaration = type identifier SEMCOL
 nodePtr Parser::variabledeclaration() {
   nodePtr node(nullptr);
-  std::optional<VType> vtype;
+  std::optional<VType> vtype = type();
 
-  if (vtype = type(), !vtype.has_value()) {
+  if (!vtype.has_value()) {
     return std::move(node);
   }
 
   node = makeNode<VarDecl>();
 
-  node->val_type = std::move(vtype);
+  node->val_type = vtype;
   node->line = m_lexer->line();
 
   auto id = identifier();
@@ -256,11 +258,11 @@ nodePtr Parser::ifStmt() {
   node->children.emplace_back(std::move(ifblock));
 
   if (match(Token::ELSE)) {
-    auto newNode = makeNode<IfElseStmt>();
-    newNode->children = std::move(node->children);
-    newNode->line = node->line;
-    node = std::move(newNode);
-    newNode.reset();
+    auto new_node = makeNode<IfElseStmt>();
+    new_node->children = std::move(node->children);
+    new_node->line = node->line;
+    node = std::move(new_node);
+    new_node.reset();
 
     auto elseblock = statement();
     node->children.emplace_back(std::move(elseblock));
@@ -330,9 +332,9 @@ nodePtr Parser::whileStmt() {
 
 // primary = literal | OPAREN expression CPAREN .
 nodePtr Parser::primary() {
-  nodePtr node(nullptr);
+  nodePtr node = literal();
 
-  if (node = literal(), node) {
+  if (node) {
     return std::move(node);
   }
 
@@ -402,9 +404,9 @@ nodePtr Parser::functioninvocation() {
 //                     | identifier [ functioninvocation ] { INC | DEC } .
 nodePtr Parser::postfixexpression() {
   nodePtr node(nullptr);
-  nodePtr temp(nullptr);
+  nodePtr temp = primary();
 
-  if (temp = primary(), temp) {
+  auto parse_postfixexpression1 = [&]() {
     while (true) {
       if (match(Token::INC) || match(Token::DEC)) {
         node = makeNode<UnaryExpr>();
@@ -418,33 +420,31 @@ nodePtr Parser::postfixexpression() {
         break;
       }
     }
-  } else if (temp = identifier(), temp) {
-    // just returns the actuals
-    auto args = functioninvocation();
-    if (args) {
-      node = makeNode<FuncCallExpr>();
-      node->children.emplace_back(std::move(temp));
-      node->children.emplace_back(std::move(args));
+  };
 
-      temp.reset();
-      temp = std::move(node);
-      node.reset();
-    }
-
-    while (true) {
-      if (match(Token::INC) || match(Token::DEC)) {
-        node = makeNode<UnaryExpr>();
-        node->line = m_lexer->line();
-        node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
-        node->children.emplace_back(std::move(temp));
-        temp = std::move(node);
-      } else {
-        node.reset();
-        node = std::move(temp);
-        break;
-      }
-    }
+  if (temp) {
+    parse_postfixexpression1();
+    return std::move(node);
   }
+
+  temp = identifier();
+
+  if (!temp) {
+    return std::move(node);
+  }
+
+  // just returns the actuals
+  auto args = functioninvocation();
+  if (args) {
+    node = makeNode<FuncCallExpr>();
+    node->children.emplace_back(std::move(temp));
+    node->children.emplace_back(std::move(args));
+
+    temp.reset();
+    temp = std::move(node);
+    node.reset();
+  }
+  parse_postfixexpression1();
 
   return std::move(node);
 }
@@ -983,21 +983,21 @@ nodePtr Parser::block() {
     return nullptr;
   }
 
-  nodePtr blockNode = makeNode<BlockStmt>();
+  nodePtr block_node = makeNode<BlockStmt>();
 
   while (true) {
     auto node = statement();
     if (!node) {
       break;
     }
-    blockNode->children.emplace_back(std::move(node));
+    block_node->children.emplace_back(std::move(node));
   }
 
   if (!match(Token::CBRCK)) {
     error("}");
   }
 
-  return std::move(blockNode);
+  return std::move(block_node);
 }
 
 // formalparameterlist = formalparameter { COMMA formalparameter } .
@@ -1013,7 +1013,7 @@ nodePtr Parser::formalparameterlist() {
     }
 
     param = makeNode<ParamDecl>();
-    param->val_type = std::move(vtype);
+    param->val_type = vtype;
     param->line = m_lexer->line();
 
     auto id = identifier();
@@ -1050,7 +1050,7 @@ nodePtr Parser::formalparameterlist() {
 // functiondeclarator  = OPAREN [ formalparameterlist ] CPAREN .
 nodePtr Parser::functiondeclarator() {
   if (!match(Token::OPAREN)) {
-    return nodePtr(nullptr);
+    return {nullptr};
   }
 
   nodePtr params = formalparameterlist();
@@ -1080,11 +1080,12 @@ void Parser::mainfunctiondeclaration() {
     error("'('");
   }
 
-  if (!match(Token::CPAREN))
+  if (!match(Token::CPAREN)) {
     m_logger->error(
         m_lexer->line(),
         ": Main function cannot take any parameters. Expected ')' but found ",
         tokenToStr(m_lexer->peek()));
+}
 
   node = block();
   m_current_node->children.emplace_back(std::move(node));
@@ -1098,12 +1099,12 @@ void Parser::mainfunctiondeclaration() {
 nodePtr Parser::globaldeclaration() {
   // m_current_node = makeNode(NType::Decl);
 
-  std::optional<VType> vtype;
+  std::optional<VType> vtype = type();
 
   // type id ( functiondeclaration | ; )
-  if (vtype = type(), vtype.has_value()) {
+  if (vtype.has_value()) {
     m_current_node = makeNode<GVarDecl>();
-    m_current_node->val_type = std::move(vtype);
+    m_current_node->val_type = vtype;
     m_current_node->line = m_lexer->line();
 
     auto node = identifier();
@@ -1113,7 +1114,8 @@ nodePtr Parser::globaldeclaration() {
 
     m_current_node->children.emplace_back(std::move(node));
 
-    if (node = functiondeclarator(), node) {
+    node = functiondeclarator();
+    if (node) {
       m_current_node->children.emplace_back(std::move(node));
 
       node = block();
@@ -1125,8 +1127,8 @@ nodePtr Parser::globaldeclaration() {
 
       auto temp = makeNode<FuncDecl>();
       temp->children = std::move(m_current_node->children);
-      temp->val_type = std::move(m_current_node->val_type);
-      temp->line = std::move(m_current_node->line);
+      temp->val_type = m_current_node->val_type;
+      temp->line = m_current_node->line;
 
       m_current_node = std::move(temp);
     } else {
@@ -1147,7 +1149,8 @@ nodePtr Parser::globaldeclaration() {
 
     m_current_node->children.emplace_back(std::move(node));
 
-    if (node = functiondeclarator(), !node) {
+    node = functiondeclarator();
+    if (!node) {
       error("function declaration");
     }
 

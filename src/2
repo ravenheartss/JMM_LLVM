@@ -248,10 +248,14 @@ void ActualsExpr::print(int indent) {
   }
 }
 
-// TODO(shankar): remove this
+// TODO: remove this
 void ActualExpr::print(int indent) {
   std::cout << std::string(indent, '\t');
   std::cout << "Actual; Line: " << line;
+  // if (val_type.has_value())
+  //     std::cout << "; Type: " << val_type.value();
+  //
+  // std::cout << "; Value: " << value << '\n';
 }
 
 // Decls

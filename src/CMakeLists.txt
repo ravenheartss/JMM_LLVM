@@ -12,7 +12,9 @@ add_executable(jmm
     common/token.cpp
     common/ast.cpp
     driver/driver.cpp
-    parser/parser.cpp)
+    parser/parser.cpp
+    semanal/analyzer.cpp
+    semanal/globalVisitor.cpp)
 
 
 add_compile_definitions($<$<CONFIG:DEBUG>:LEXER_DEBUG>)

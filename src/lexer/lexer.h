@@ -19,7 +19,7 @@ class Lexer {
 
   std::string lexeme() { return {m_curr_lexeme}; };
 
-  uint32_t line() { return m_lineno; }
+  uint32_t line() const { return m_lineno; }
 
  private:
   void lex();
@@ -30,7 +30,6 @@ class Lexer {
   bool isOperator();
   bool isSpecial();
 
- private:
   std::string m_curr_lexeme;
   Token m_curr_token;
   bool m_consumed;
