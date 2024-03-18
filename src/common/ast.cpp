@@ -1,224 +1,307 @@
 #include "ast.h"
-
 #include <iostream>
 #include <memory>
 #include <variant>
 
-// There are wayy better ways to print the tree but this is just for debug
-
-void Printer(StmtType stmt, std::unique_ptr<ASTNode> &node, int indent);
-void Printer(ExprType expr, std::unique_ptr<ASTNode> &node, int indent);
-void Printer(DeclType decl, std::unique_ptr<ASTNode> &node, int indent);
-
-
-struct ValueVisitor
-{
-    void operator()(std::string val) const 
-    {
-        std::cout << val;
-    }
-    void operator()(int32_t val) const
-    {
-        std::cout << val;
-    }
-    void operator()(bool val) const
-    {
-        std::cout << val;
-    }
-    void operator()(std::monostate val) const
-    {
-    }
-};
-
-void ASTNode::print(int indent)
-{
-    std::cout << std::string(indent, '\t');
-    switch (this->type) 
-    {
-        case NType::Prog: std::cout << "Program\n";     break;
-        default:                                        break;
-    }
-
-    for (auto &child : children)
-    {
-        switch (child->type) 
-        {
-            case NType::Stmt:   Printer(std::get<0>(child->kind), child, indent+1); break;
-            case NType::Expr:   Printer(std::get<1>(child->kind), child, indent+1); break;
-            case NType::Decl:   Printer(std::get<2>(child->kind), child, indent+1); break;
-            default: break;
+std::ostream& operator<<(
+    std::ostream& out,
+    std::variant<std::monostate, std::string, int32_t, bool> value) {
+  std::visit(
+      [&](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return;
+        } else {
+          out << arg;
         }
-    }
+      },
+      value);
+
+  return out;
 }
 
-
-void Printer(StmtType stmt, std::unique_ptr<ASTNode> &node, int indent)
-{
-    std::cout << std::string(indent, '\t');
-    switch(stmt)
-    {
-        case StmtType::If       : std::cout << "IfStmt";        break;
-        case StmtType::IfElse   : std::cout << "IfElseStmt";    break;
-        case StmtType::While    : std::cout << "WhileStmt";     break;
-        case StmtType::FCall    : std::cout << "FuncCall";      break;
-        case StmtType::Goto     : std::cout << "GotoStmt";      break;
-        case StmtType::Return   : std::cout << "ReturnStmt";    break;
-        case StmtType::Break    : std::cout << "BreakStmt";     break;
-        case StmtType::Block    : std::cout << "BlockStmt";     break;
-        case StmtType::Expr     : std::cout << "ExprStmt";      break;
-        case StmtType::Null     : std::cout << "EmptyStmt";     break;
-        default                 : break;
-    }
-
-    if (node->line)
-        std::cout << " Line: " << node->line;
-
-    std::cout << '\n';
-
-    for (auto &child : node->children)
-    {
-        switch (child->type) 
-        {
-            case NType::Stmt:   Printer(std::get<0>(child->kind), child, indent+1); break;
-            case NType::Expr:   Printer(std::get<1>(child->kind), child, indent+1); break;
-            case NType::Decl:   Printer(std::get<2>(child->kind), child, indent+1); break;
-            default: break;
-        }
-    }
+std::ostream& operator<<(std::ostream& out, VType value_type) {
+  switch (value_type) {
+    case VType::Int:
+      return out << "Int";
+    case VType::Str:
+      return out << "Str";
+    case VType::Bool:
+      return out << "Bool";
+    case VType::Void:
+      return out << "Void";
+    default:
+      return out;
+  }
 }
 
-void Printer(ExprType expr, std::unique_ptr<ASTNode> &node, int indent)
-{
-    std::cout << std::string(indent, '\t');
-    switch(expr)
-    {
-        case ExprType::Id       : std::cout << "ID";            break;
-        case ExprType::Lit      : std::cout << "Literal";       break;
-        case ExprType::Unary    : std::cout << "Unary Expr";    break;
-        case ExprType::Binary   : std::cout << "Binary Expr";   break;
-        case ExprType::Bitwise  : std::cout << "Bitwise Expr";  break;
-        case ExprType::Assign   : std::cout << "=";   break;
-        case ExprType::FuncCall : std::cout << "Func Call";     break;
-        case ExprType::Actuals  : std::cout << "Actuals";       break;
-        case ExprType::Actual   : std::cout << "Actual";        break;
-        default                 : break;
-    }
-
-    if (node->line)
-        std::cout << " Line: " << node->line;
-
-    if (node->val_type.has_value()) 
-    {
-        switch (node->val_type.value())
-        {
-            case VType::Int:    std::cout << " Type: Int";  break;
-            case VType::Str:    std::cout << " Type: Str";  break;
-            case VType::Bool:   std::cout << " Type: Bool"; break;
-            case VType::Void:   std::cout << " Type: Void"; break;
-                break;
-        }
-    }
-
-    if (node->value.index() != 0)
-    {
-        std::cout << " Value: ";
-        std::visit(ValueVisitor{}, node->value); // print value
-    }
-
-    if (node->op.has_value())
-    {
-        std::cout << " Op: ";
-        switch(node->op.value())
-        {
-            case Op::BAND:      std::cout << "&";       break;
-            case Op::BOR:       std::cout << "|";       break;
-            case Op::LAND:      std::cout << "&&";      break;
-            case Op::LOR:       std::cout << "||";      break;
-            case Op::XOR:       std::cout << "^";       break;
-            case Op::ADD:       std::cout << "+";       break;
-            case Op::POSTINC:   std::cout << "Post ++"; break;
-            case Op::POSTDEC:   std::cout << "Post --"; break;
-            case Op::PREINC:    std::cout << "Pre ++";  break;
-            case Op::PREDEC:    std::cout << "Pre --";  break;
-            case Op::SUB:       std::cout << "-";       break;
-            case Op::MULT:      std::cout << "*";       break;
-            case Op::DIV:       std::cout << "/";       break;
-            case Op::MOD:       std::cout << "%";       break;
-            case Op::NOT:       std::cout << "!";       break;
-            case Op::EQ:        std::cout << "==";      break;
-            case Op::NE:        std::cout << "!=";      break;
-            case Op::GT:        std::cout << ">";       break;
-            case Op::LT:        std::cout << "<";       break;
-            case Op::GE:        std::cout << ">=";      break;
-            case Op::LE:        std::cout << "<=";      break;
-            case Op::LSHIFT:    std::cout << "<<";      break;
-            case Op::RSHIFT:    std::cout << ">>";      break;
-            default:            break;
-          break;
-        }
-    }
-
-    std::cout << '\n';
-
-    for (auto &child : node->children)
-    {
-        switch (child->type) 
-        {
-            case NType::Stmt:   Printer(std::get<0>(child->kind), child, indent+1); break;
-            case NType::Expr:   Printer(std::get<1>(child->kind), child, indent+1); break;
-            case NType::Decl:   Printer(std::get<2>(child->kind), child, indent+1); break;
-            default: break;
-        }
-    }
-    // for (auto &child : node->children)
-    //     std::visit(Visitor{}, child->kind, child, indent+1);
+std::ostream& operator<<(std::ostream& out, Op oper) {
+  switch (oper) {
+    case Op::BAND:
+      return out << "&";
+    case Op::BOR:
+      return out << "|";
+    case Op::LAND:
+      return out << "&&";
+    case Op::LOR:
+      return out << "||";
+    case Op::XOR:
+      return out << "^";
+    case Op::ADD:
+      return out << "+";
+    case Op::POSTINC:
+      return out << "Post ++";
+    case Op::POSTDEC:
+      return out << "Post --";
+    case Op::PREINC:
+      return out << "Pre ++";
+    case Op::PREDEC:
+      return out << "Pre --";
+    case Op::SUB:
+      return out << "-";
+    case Op::MULT:
+      return out << "*";
+    case Op::DIV:
+      return out << "/";
+    case Op::MOD:
+      return out << "%";
+    case Op::NOT:
+      return out << "!";
+    case Op::EQ:
+      return out << "==";
+    case Op::NE:
+      return out << "!=";
+    case Op::GT:
+      return out << ">";
+    case Op::LT:
+      return out << "<";
+    case Op::GE:
+      return out << ">=";
+    case Op::LE:
+      return out << "<=";
+    case Op::LSHIFT:
+      return out << "<<";
+    case Op::RSHIFT:
+      return out << ">>";
+    default:
+      return out;
+  }
 }
 
-void Printer(DeclType decl, std::unique_ptr<ASTNode> &node, int indent)
-{
-    std::cout << std::string(indent, '\t');
-    switch(decl)
-    {
-        case DeclType::Func     : std::cout << "Func Decl";	break;
-        case DeclType::MFunc    : std::cout << "Main Func Decl";	break;
-        case DeclType::Var      : std::cout << "Var Decl";	break;
-        case DeclType::GVar     : std::cout << "Global Var Decl";	break;
-        case DeclType::Params   : std::cout << "Params";	break;
-        case DeclType::Param    : std::cout << "Param";	break;
-        default                 : break;
-    }
-    if (node->line)
-        std::cout << " Line: " << node->line;
+void ProgNode::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Program\n";
 
-    if (node->val_type.has_value()) 
-    {
-        switch (node->val_type.value())
-        {
-            case VType::Int:    std::cout << " Type: Int";  break;
-            case VType::Str:    std::cout << " Type: Str";  break;
-            case VType::Bool:   std::cout << " Type: Bool"; break;
-            case VType::Void:   std::cout << " Type: Void"; break;
-                break;
-        }
-    }
+  // Start printing children
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
 
-    if (node->value.index() != 0)
-    {
-        std::cout << " Value: ";
-        std::visit(ValueVisitor{}, node->value); // print value
-    }
+void IfStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "IfStmt; Line: " << line << '\n';
 
-    std::cout << '\n';
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
 
-    for (auto &child : node->children)
-    {
-        switch (child->type) 
-        {
-            case NType::Stmt:   Printer(std::get<0>(child->kind), child, indent+1); break;
-            case NType::Expr:   Printer(std::get<1>(child->kind), child, indent+1); break;
-            case NType::Decl:   Printer(std::get<2>(child->kind), child, indent+1); break;
-            default: break;
-        }
-    }
+void IfElseStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "IfElseStmt; Line: " << line << '\n';
 
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void WhileStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "WhileStmt; Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void GotoStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "GotoStmt; Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void ReturnStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "ReturnStmt; Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void BreakStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "BreakStmt; Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void BlockStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Block\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void ExprStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Expression Stmt" << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void NullStmt::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "EmptyStmt; Line: " << line << '\n';
+}
+
+// Exprs
+void IdExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "ID; Line: " << line << "; \"" << value << "\"\n";
+}
+
+void LitExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Literal; Line: " << line << "; Type: " << val_type.value()
+            << "Value: " << value << '\n';
+}
+
+void UnaryExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "UnaryExpr; Op: " << op.value() << " Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void BinaryExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "BinaryExpr; Op: " << op.value() << " Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void BitwiseExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "BitwiseExpr; Op: " << op.value() << " Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void AssignExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "AssignExpr; '='; Line: " << line << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void FuncCallExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "FuncCallExpr;" << '\n';
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void ActualsExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Actuals;\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+// TODO: remove this
+void ActualExpr::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Actual; Line: " << line;
+  // if (val_type.has_value())
+  //     std::cout << "; Type: " << val_type.value();
+  //
+  // std::cout << "; Value: " << value << '\n';
+}
+
+// Decls
+void FuncDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "FuncDecl; Line: " << line << "; Type: " << val_type.value()
+            << "\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void MFuncDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "MainFuncDecl;\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void VarDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "VarDecl; Line: " << line << "; Type: " << val_type.value()
+            << "\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void GVarDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "GlobalVarDecl; Line: " << line << "; Type: " << val_type.value()
+            << "\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void ParamsDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Params;\n";
+
+  for (auto& child : children) {
+    child->print(indent + 1);
+  }
+}
+
+void ParamDecl::print(int indent) {
+  std::cout << std::string(indent, '\t');
+  std::cout << "Param; Line: " << line << "; Type: " << val_type.value()
+            << "; \"" << value << "\"\n";
 }
