@@ -1,29 +1,27 @@
 #ifndef JMM_DRIVER_H
 #define JMM_DRIVER_H
 
-#include "common/jmm.h"
-#include "common/errwarn.h"
-#include "common/ast.h"
-
 #include <memory>
 #include <string>
 
-class Driver 
-{
-    public:
-        Driver(std::string file);
-        ~Driver();
+#include "common/ast.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
 
-        bool compile();
+class Driver {
+ public:
+  Driver(std::string file);
+  ~Driver();
 
-    private:
-        std::shared_ptr<Lexer> m_lexer;
-        std::unique_ptr<Parser> m_parser;
-        std::shared_ptr<Logger> m_logger;
+  bool compile();
 
-        std::unique_ptr<ASTNode> m_ast;
+ private:
+  std::shared_ptr<Lexer> m_lexer;
+  std::unique_ptr<Parser> m_parser;
+  std::shared_ptr<Logger> m_logger;
 
-        std::string filename;
+  std::unique_ptr<ASTNode> m_ast;
 
+  std::string filename;
 };
-#endif // !JMM_DRIVER_H
+#endif  // !JMM_DRIVER_H

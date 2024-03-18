@@ -1,43 +1,45 @@
-// license: MIT
-// copyright: Shankar Ganesh
+#ifndef JMM_LEXER_H
+#define JMM_LEXER_H
 
-#include "common/jmm.h"
-#include "common/errwarn.h"
-#include "common/token.h"
-#include <string>
 #include <fstream>
 #include <memory>
+#include <string>
+#include "common/errwarn.h"
+#include "common/token.h"
 
-class Lexer 
-{
-    public:
-        Lexer(std::string_view filename, std::shared_ptr<Logger> &logger);
-        ~Lexer();
+class Lexer {
+ public:
+  Lexer(std::string_view filename, std::shared_ptr<Logger>& logger);
+  ~Lexer();
 
-        Token peek();
-        Token consume();
-        Token current() { return m_curr_token; }
+  Token peek();
+  Token consume();
 
-        std::string lexeme() { return {m_curr_lexeme}; };
-        uint32_t line() { return m_lineno; }
+  Token current() { return m_curr_token; }
 
-    private:
-        void lex();
-        void isIdentifier();
-        void isReserved();
-        void isNumeric();
-        void isStr();
-        bool isOperator();
-        bool isSpecial();
+  std::string lexeme() { return {m_curr_lexeme}; };
 
-    private:
-        std::string             m_curr_lexeme;
-        Token                   m_curr_token;
-        bool                    m_consumed;
-        uint32_t                m_lineno;
+  uint32_t line() { return m_lineno; }
 
-        std::string_view        m_filename;
-        std::ifstream           m_input;
+ private:
+  void lex();
+  void isIdentifier();
+  void isReserved();
+  void isNumeric();
+  void isStr();
+  bool isOperator();
+  bool isSpecial();
 
-        std::shared_ptr<Logger> m_logger;
+ private:
+  std::string m_curr_lexeme;
+  Token m_curr_token;
+  bool m_consumed;
+  uint32_t m_lineno;
+
+  std::string_view m_filename;
+  std::ifstream m_input;
+
+  std::shared_ptr<Logger> m_logger;
 };
+
+#endif  // JMM_LEXER_H
