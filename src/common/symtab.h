@@ -8,43 +8,28 @@
 #include <stack>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 
-enum class Scope {
-  GLOBAL,
-  FUNC,
-  BLOCK
+enum class Scope { GLOBAL, FUNC, BLOCK };
 
-};
+enum class SymType { VAR, FUNC };
 
-struct FunctionSig {
-  VType return_type;
-  std::vector<VType> param_types;
+struct Symbol {
+  SymType symbol_type;  // either a var or func
+  VType v_type;         // type of variable or func ret type
+  int line;
+  std::optional<std::vector<VType>> param_types;
   bool isMain;
-  int line;
 
-  FunctionSig(VType type, std::vector<VType> params, bool main_func, int lineno)
-      : return_type(type), param_types(std::move(params)), isMain(main_func), line(lineno) {}
+  Symbol(VType type, std::vector<VType> params, bool main_func, int lineno)
+      : v_type(type),
+        param_types(std::move(params)),
+        isMain(main_func),
+        line(lineno),
+        symbol_type(SymType::FUNC) {}
+
+  Symbol(VType type, int lineno)
+      : v_type(type), line(lineno), symbol_type(SymType::VAR) {}
 };
-
-struct VarSig {
-  VType var_type;
-  int line;
-
-  VarSig(VType type, int lineno) : var_type(type), line(lineno) {}
-};
-
-using Symbol = std::variant<VarSig, FunctionSig>;
-
-// Helper functions to check if symbol returned by the symbol table is a function or a global variable
-// Mainly for better error messages.
-inline bool isVar(Symbol const& sym) {
-    return sym.index() == 0;
-}
-
-inline bool isFunc(Symbol const& sym) {
-    return sym.index() == 1;
-}
 
 class SymbolTable {
  public:
@@ -130,11 +115,19 @@ class SymbolTable {
 
   void exit_block() { m_blocks.pop(); }
 
+  // get the current depth of the block
   size_t current_scope() { return m_blocks.size(); }
+
+  void print() {
+    for (auto const& entry : m_global) {
+      std::cerr << entry.first << '\n';
+    }
+  }
 
  private:
   std::shared_ptr<Logger> m_logger;
   std::unordered_map<std::string, Symbol> m_global;
+  // For formals since they are available to entire function scope
   std::unordered_map<std::string, Symbol> m_func;
   std::stack<std::unordered_map<std::string, Symbol>> m_blocks;
 };

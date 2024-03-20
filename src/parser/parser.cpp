@@ -5,12 +5,15 @@
 #include "common/token.h"
 #include "lexer/lexer.h"
 
-using nodePtr = std::unique_ptr<ASTNode>;
+// using nodePtr = std::unique_ptr<ASTNode>;
+
+template <class T>
+using nodeT = std::unique_ptr<T>;
 
 // Helper functions
-template <class T>
-inline std::unique_ptr<T> makeNode() {
-  return std::make_unique<T>();
+template <class T, typename... Args>
+inline std::unique_ptr<T> makeNode(Args&&... args) {
+  return std::make_unique<T>(std::forward<Args>(args)...);
 }
 
 Op tokenToOp(Token tok) {
@@ -62,11 +65,10 @@ Parser::~Parser() {
   m_logger.reset();
   m_lexer.reset();
   m_ast.reset();
-  m_current_node.reset();
 }
 
 bool Parser::parse() {
-  m_ast = makeNode<ProgNode>();
+  m_ast = makeNode<ASTNode>();
   start();
   return true;
 }
@@ -100,13 +102,13 @@ std::optional<VType> Parser::type() {
   return {};
 }
 
-nodePtr Parser::identifier() {
-  nodePtr id(nullptr);
+// This needs to return Id so we can retreive the value
+auto Parser::identifier() {
+  nodeT<IdExpr> id(nullptr);
 
   if (match(Token::ID)) {
-    id = makeNode<IdExpr>();
+    id = makeNode<IdExpr>(m_lexer->lexeme());
     id->line = m_lexer->line();
-    id->value = m_lexer->lexeme();
   }
 
   return std::move(id);
@@ -117,25 +119,18 @@ nodePtr Parser::literal() {
   nodePtr node(nullptr);
 
   if (match(Token::NUM)) {
-    node = makeNode<LitExpr>();
-    node->val_type = VType::Int;
+    node =
+        makeNode<LitExpr>(static_cast<int32_t>(std::stoul(m_lexer->lexeme())));
     node->line = m_lexer->line();
-    node->value = static_cast<int32_t>(std::stoul(m_lexer->lexeme()));
   } else if (match(Token::STRLIT)) {
-    node = makeNode<LitExpr>();
-    node->val_type = VType::Str;
+    node = makeNode<LitExpr>(m_lexer->lexeme());
     node->line = m_lexer->line();
-    node->value = m_lexer->lexeme();
   } else if (match(Token::TRUE)) {
-    node = makeNode<LitExpr>();
-    node->val_type = VType::Bool;
+    node = makeNode<LitExpr>(true);
     node->line = m_lexer->line();
-    node->value = true;
   } else if (match(Token::FALSE)) {
-    node = makeNode<LitExpr>();
-    node->val_type = VType::Bool;
+    node = makeNode<LitExpr>(false);
     node->line = m_lexer->line();
-    node->value = false;
   }
 
   return std::move(node);
@@ -150,17 +145,13 @@ nodePtr Parser::variabledeclaration() {
     return std::move(node);
   }
 
-  node = makeNode<VarDecl>();
-
-  node->val_type = vtype;
-  node->line = m_lexer->line();
-
   auto id = identifier();
   if (!id) {
     error("identifier in a variable declaration after type");
   }
 
-  node->children.emplace_back(std::move(id));
+  node = makeNode<VarDecl>(id->value, vtype.value());
+  node->line = id->line;
 
   if (!match(Token::SEMICOL)) {
     error("semicolon after variable declaration");
@@ -187,145 +178,132 @@ nodePtr Parser::simpleStmt() {
 // exprStmt = identifier ( assignment | functioninvocation ) SEMCOL .
 // exprStmt = expression SEMCOL .
 nodePtr Parser::exprStmt() {
-  nodePtr node(nullptr);
+  auto expr = expression();
 
-  auto temp = expression();
-
-  if (!temp) {
+  if (!expr) {
     return nullptr;
   }
-
-  node = makeNode<ExprStmt>();
-  node->children.emplace_back(std::move(temp));
 
   if (!match(Token::SEMICOL)) {
     error("semicolon");
   }
 
-  return std::move(node);
+  return std::move(makeNode<ExprStmt>(std::move(expr)));
 }
 
 // returnStmt = RETURN [ expression ] SEMCOL .
 nodePtr Parser::returnStmt() {
-  nodePtr node(nullptr);
-
   if (!match(Token::RETURN)) {
-    return std::move(node);
+    return nullptr;
   }
 
-  node = makeNode<ReturnStmt>();
-  node->line = m_lexer->line();
-
+  auto ret_line = m_lexer->line();
   auto expr = expression();
-  if (expr) {
-    node->children.emplace_back(std::move(expr));
-  }
 
   if (!match(Token::SEMICOL)) {
     error("semicolon after return statement");
   }
+
+  auto node = makeNode<ReturnStmt>();
+  if (expr) {
+    node->expr = std::move(expr);
+  }
+  node->line = ret_line;
 
   return std::move(node);
 }
 
 // ifStmt = IF OPAREN expression CPAREN statement [ ELSE statement ] .
 nodePtr Parser::ifStmt() {
-  nodePtr node(nullptr);
-
   if (!match(Token::IF)) {
-    return std::move(node);
+    return nullptr;
   }
 
-  node = makeNode<IfStmt>();
-  node->line = m_lexer->line();
+  auto if_line = m_lexer->line();
 
   if (!match(Token::OPAREN)) {
     error("'(' after if");
   }
 
-  auto expr = expression();
-  if (!expr) {
-    error("expression in if statement");
+  auto cond = expression();
+  if (!cond) {
+    error("expression in if statement condition");
   }
-
-  node->children.emplace_back(std::move(expr));
 
   if (!match(Token::CPAREN)) {
     error("')' after if expression");
   }
 
   auto ifblock = statement();
-  node->children.emplace_back(std::move(ifblock));
 
-  if (match(Token::ELSE)) {
-    auto new_node = makeNode<IfElseStmt>();
-    new_node->children = std::move(node->children);
-    new_node->line = node->line;
-    node = std::move(new_node);
-    new_node.reset();
-
-    auto elseblock = statement();
-    node->children.emplace_back(std::move(elseblock));
+  if (!ifblock) {
+    error("body after if");
   }
 
+  nodePtr node(nullptr);
+
+  if (match(Token::ELSE)) {
+    auto elseblock = statement();
+    if (!elseblock) {
+      error("body after else");
+    }
+    node = makeNode<IfElseStmt>(std::move(cond), std::move(ifblock),
+                                std::move(elseblock));
+  } else {
+    node = makeNode<IfStmt>(std::move(cond), std::move(ifblock));
+  }
+
+  node->line = if_line;
   return std::move(node);
 }
 
 // gotoStmt = GOTO expression SEMCOL .
 nodePtr Parser::gotoStmt() {
-  nodePtr node(nullptr);
-
   if (!match(Token::GOTO)) {
-    return std::move(node);
+    return nullptr;
   }
 
-  node = makeNode<GotoStmt>();
-  node->line = m_lexer->line();
+  auto goto_line = m_lexer->line();
 
   auto expr = expression();
   if (!expr) {
     error("expression after goto");
   }
 
-  node->children.emplace_back(std::move(expr));
+  auto node = makeNode<GotoStmt>(std::move(expr));
+  node->line = goto_line;
 
   return std::move(node);
 }
 
 // whileStmt = WHILE OPAREN expression CPAREN statement .
 nodePtr Parser::whileStmt() {
-  nodePtr node(nullptr);
-
   if (!match(Token::WHILE)) {
-    return std::move(node);
+    return nullptr;
   }
 
-  node = makeNode<WhileStmt>();
-  node->line = m_lexer->line();
+  auto while_line = m_lexer->line();
 
   if (!match(Token::OPAREN)) {
     error("'(' after while statement");
   }
 
   auto expr = expression();
-
   if (!expr) {
     error("an expression after while");
   }
-
-  node->children.emplace_back(std::move(expr));
 
   if (!match(Token::CPAREN)) {
     error("')' after while expression");
   }
 
-  auto stmt = statement();
-
-  if (!stmt) {
+  auto body = statement();
+  if (!body) {
     error("a statement after while");
   }
 
-  node->children.emplace_back(std::move(stmt));
+  auto node = makeNode<WhileStmt>(std::move(expr), std::move(body));
+  node->line = while_line;
 
   return std::move(node);
 }
@@ -356,17 +334,17 @@ nodePtr Parser::primary() {
 }
 
 // argumentlist = expression { COMMA expression } .
-nodePtr Parser::argumentlist() {
-  nodePtr actuals = makeNode<ActualsExpr>();
+std::vector<nodeT<ActualExpr>> Parser::argumentlist() {
+  std::vector<nodeT<ActualExpr>> actuals;
 
   auto actual = expression();
   if (!actual) {
-    return std::move(actuals);
+    return actuals;
   }
 
   while (true) {
-    // actual->kind = ExprType::Actual;
-    actuals->children.emplace_back(std::move(actual));
+    auto node = makeNode<ActualExpr>(std::move(actual));
+    actuals.emplace_back(std::move(node));
     if (!match(Token::COMMA)) {
       break;
     }
@@ -376,23 +354,21 @@ nodePtr Parser::argumentlist() {
     }
   }
 
-  return std::move(actuals);
+  return actuals;
 }
 
 // functioninvocation  = OPAREN [ argumentlist ] CPAREN .
-nodePtr Parser::functioninvocation() {
-  nodePtr node(nullptr);
-
+nodeT<Actuals> Parser::functioninvocation() {
   if (!match(Token::OPAREN)) {
-    return std::move(node);
+    return nullptr;
   }
 
-  node = argumentlist();
-
+  auto args = argumentlist();
   if (!match(Token::CPAREN)) {
     error("')' after argument(s)");
   }
 
+  auto node = makeNode<Actuals>(std::move(args));
   return std::move(node);
 }
 
@@ -409,10 +385,10 @@ nodePtr Parser::postfixexpression() {
   auto parse_postfixexpression1 = [&]() {
     while (true) {
       if (match(Token::INC) || match(Token::DEC)) {
-        node = makeNode<UnaryExpr>();
+        node = makeNode<UnaryExpr>(
+            m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC,
+            std::move(temp));
         node->line = m_lexer->line();
-        node->op = m_lexer->current() == Token::INC ? Op::POSTINC : Op::POSTDEC;
-        node->children.emplace_back(std::move(temp));
         temp = std::move(node);
       } else {
         node.reset();
@@ -427,22 +403,23 @@ nodePtr Parser::postfixexpression() {
     return std::move(node);
   }
 
-  temp = identifier();
-
-  if (!temp) {
+  auto id = identifier();
+  if (!id) {
     return std::move(node);
   }
 
   // just returns the actuals
   auto args = functioninvocation();
-  if (args) {
-    node = makeNode<FuncCallExpr>();
-    node->children.emplace_back(std::move(temp));
-    node->children.emplace_back(std::move(args));
+  if (args){
+    node = std::make_unique<FuncCallExpr>(id->value, std::move(args));
+    node->line = id->line;
 
-    temp.reset();
+    // need to do this to parse the inc/dec operators
     temp = std::move(node);
     node.reset();
+  } else {
+    temp = std::move(id);
+    id.reset();
   }
   parse_postfixexpression1();
 
@@ -455,11 +432,10 @@ nodePtr Parser::unaryexpression() {
   nodePtr node(nullptr);
   nodePtr temp(nullptr);
 
-  node = makeNode<UnaryExpr>();
   if (match(Token::MINUS) || match(Token::NOT) || match(Token::INC) ||
       match(Token::DEC)) {
     // needed for preinc and predec
-    node->op = [this]() {
+    Op op = [this]() {
       switch (m_lexer->current()) {
         case Token::MINUS:
           return Op::SUB;
@@ -472,20 +448,23 @@ nodePtr Parser::unaryexpression() {
         default:
           error(
               "Failed to convert Token to Operator. Oops! Something is "
-              "seriously wrong!");
+              "seriously wrong with the compiler!");
       }
     }();
-    node->line = m_lexer->line();
+
+    auto op_line = m_lexer->line();
+
     temp = unaryexpression();
     if (!temp) {
       error("a unary expression");
     }
-    node->children.emplace_back(std::move(temp));
-  } else {
-    node.reset();
-    node = postfixexpression();
+
+    node = makeNode<UnaryExpr>(op, std::move(temp));
+    node->line = op_line;
+    return std::move(node);
   }
-  return std::move(node);
+
+  return postfixexpression();
 }
 
 // multiplicativeexpression = unaryexpression { mult_op unaryexpression } .
@@ -505,18 +484,16 @@ nodePtr Parser::multiplicativeexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = tokenToOp(m_lexer->current());
+    auto op = tokenToOp(m_lexer->current());
+    auto op_line = m_lexer->line();
 
     auto rhs = unaryexpression();
-
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(op, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -546,18 +523,16 @@ nodePtr Parser::additiveexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = tokenToOp(m_lexer->current());
+    auto op = tokenToOp(m_lexer->current());
+    auto op_line = m_lexer->line();
 
     auto rhs = multiplicativeexpression();
-
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(op, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -587,9 +562,8 @@ nodePtr Parser::shiftexpression() {
   }
 
   while (true) {
-    temp = makeNode<BitwiseExpr>();
-    temp->line = m_lexer->line();
-    temp->op = tokenToOp(m_lexer->current());
+    auto op = tokenToOp(m_lexer->current());
+    auto op_line = m_lexer->line();
 
     auto rhs = additiveexpression();
 
@@ -597,8 +571,8 @@ nodePtr Parser::shiftexpression() {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BitwiseExpr>(op, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -629,9 +603,8 @@ nodePtr Parser::relationalexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = tokenToOp(m_lexer->current());
+    auto op = tokenToOp(m_lexer->current());
+    auto op_line = m_lexer->line();
 
     auto rhs = shiftexpression();
 
@@ -639,8 +612,8 @@ nodePtr Parser::relationalexpression() {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(op, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -671,9 +644,8 @@ nodePtr Parser::equalityexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = tokenToOp(m_lexer->current());
+    auto op = tokenToOp(m_lexer->current());
+    auto op_line = m_lexer->line();
 
     auto rhs = relationalexpression();
 
@@ -681,8 +653,8 @@ nodePtr Parser::equalityexpression() {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(op, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -711,18 +683,15 @@ nodePtr Parser::bitwiseandexpression() {
   }
 
   while (true) {
-    temp = makeNode<BitwiseExpr>();
-    temp->line = m_lexer->line();
-    temp->op = Op::BAND;
-
+    auto op_line = m_lexer->line();
     auto rhs = equalityexpression();
 
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BitwiseExpr>(Op::BAND, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -751,18 +720,15 @@ nodePtr Parser::xorexpression() {
   }
 
   while (true) {
-    temp = makeNode<BitwiseExpr>();
-    temp->line = m_lexer->line();
-    temp->op = Op::XOR;
-
+    auto op_line = m_lexer->line();
     auto rhs = bitwiseandexpression();
 
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BitwiseExpr>(Op::XOR, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -791,18 +757,15 @@ nodePtr Parser::bitwiseorexpression() {
   }
 
   while (true) {
-    temp = makeNode<BitwiseExpr>();
-    temp->line = m_lexer->line();
-    temp->op = Op::BOR;
-
+    auto op_line = m_lexer->line();
     auto rhs = xorexpression();
 
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BitwiseExpr>(Op::BOR, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -832,18 +795,15 @@ nodePtr Parser::conditionalandexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = Op::LAND;
-
+    auto op_line = m_lexer->line();
     auto rhs = bitwiseorexpression();
 
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(Op::LAND, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -873,18 +833,15 @@ nodePtr Parser::conditionalorexpression() {
   }
 
   while (true) {
-    temp = makeNode<BinaryExpr>();
-    temp->line = m_lexer->line();
-    temp->op = Op::LOR;
-
+    auto op_line = m_lexer->line();
     auto rhs = conditionalandexpression();
 
     if (!rhs) {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<BinaryExpr>(Op::LOR, std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -914,8 +871,7 @@ nodePtr Parser::assignmentexpression() {
   }
 
   while (true) {
-    temp = makeNode<AssignExpr>();
-    temp->line = m_lexer->line();
+    auto op_line = m_lexer->line();
 
     auto rhs = conditionalorexpression();
 
@@ -923,8 +879,8 @@ nodePtr Parser::assignmentexpression() {
       error("an expression");
     }
 
-    temp->children.emplace_back(std::move(node));  // lhs
-    temp->children.emplace_back(std::move(rhs));   // lhs
+    temp = makeNode<AssignExpr>(std::move(node), std::move(rhs));
+    temp->line = op_line;
 
     node = std::move(temp);
     temp.reset();
@@ -1001,27 +957,23 @@ nodePtr Parser::block() {
 }
 
 // formalparameterlist = formalparameter { COMMA formalparameter } .
-nodePtr Parser::formalparameterlist() {
-  nodePtr params = makeNode<ParamsDecl>();
+std::vector<nodeT<ParamDecl>> Parser::formalparameterlist() {
+  std::vector<nodeT<ParamDecl>> params;
 
   // formalparameter = type identifier .
   auto formalparameter = [&]() {
-    nodePtr param(nullptr);
     auto vtype = type();
     if (!vtype.has_value()) {
-      return std::move(param);
+      return nodeT<ParamDecl>(nullptr);
     }
-
-    param = makeNode<ParamDecl>();
-    param->val_type = vtype;
-    param->line = m_lexer->line();
 
     auto id = identifier();
     if (!id) {
       error("identifier");
     }
 
-    param->value = id->value;
+    auto param = makeNode<ParamDecl>(id->value, vtype.value());
+    param->line = m_lexer->line();
 
     return std::move(param);
   };
@@ -1032,7 +984,7 @@ nodePtr Parser::formalparameterlist() {
   }
 
   while (true) {
-    params->children.emplace_back(std::move(param));
+    params.emplace_back(std::move(param));
 
     if (!match(Token::COMMA)) {
       break;
@@ -1040,7 +992,7 @@ nodePtr Parser::formalparameterlist() {
 
     param = formalparameter();
     if (!param) {
-      error("a parameter");
+      error("a parameter after comma");
     }
   }
 
@@ -1048,12 +1000,12 @@ nodePtr Parser::formalparameterlist() {
 }
 
 // functiondeclarator  = OPAREN [ formalparameterlist ] CPAREN .
-nodePtr Parser::functiondeclarator() {
+nodeT<Params> Parser::functiondeclarator() {
   if (!match(Token::OPAREN)) {
-    return {nullptr};
+    return nullptr;
   }
 
-  nodePtr params = formalparameterlist();
+  auto params = makeNode<Params>(std::move(formalparameterlist()));
 
   if (!match(Token::CPAREN)) {
     error("')'");
@@ -1063,18 +1015,11 @@ nodePtr Parser::functiondeclarator() {
 }
 
 // mainfunctiondeclaration = id OPAREN CPAREN block .
-void Parser::mainfunctiondeclaration() {
-  m_current_node = makeNode<MFuncDecl>();
-  auto node = identifier();
-  if (!node) {
+nodePtr Parser::mainfunctiondeclaration() {
+  auto id = identifier();
+  if (!id) {
     error("identifier");
   }
-
-  m_current_node->line = m_lexer->line();
-  m_current_node->val_type = VType::Int;
-
-  // id
-  m_current_node->children.emplace_back(std::move(node));
 
   if (!match(Token::OPAREN)) {
     error("'('");
@@ -1085,10 +1030,15 @@ void Parser::mainfunctiondeclaration() {
         m_lexer->line(),
         ": Main function cannot take any parameters. Expected ')' but found ",
         tokenToStr(m_lexer->peek()));
-}
+  }
 
-  node = block();
-  m_current_node->children.emplace_back(std::move(node));
+  auto body = block();
+  if (!body) {
+    error("block after main function declaration");
+  }
+  auto node = makeNode<MFuncDecl>(id->value, std::move(body));
+  node->line = id->line;
+  return std::move(node);
 }
 
 // globaldeclaration   =
@@ -1097,82 +1047,72 @@ void Parser::mainfunctiondeclaration() {
 //      | mainfunctiondeclaration .
 // functiondeclarator has been expanded here as it's only use is here!
 nodePtr Parser::globaldeclaration() {
-  // m_current_node = makeNode(NType::Decl);
-
   std::optional<VType> vtype = type();
 
   // type id ( functiondeclaration | ; )
   if (vtype.has_value()) {
-    m_current_node = makeNode<GVarDecl>();
-    m_current_node->val_type = vtype;
-    m_current_node->line = m_lexer->line();
+    auto type_line = m_lexer->line();
 
-    auto node = identifier();
-    if (!node) {
+    auto id = identifier();
+    if (!id) {
       error("identifier");
     }
 
-    m_current_node->children.emplace_back(std::move(node));
-
-    node = functiondeclarator();
-    if (node) {
-      m_current_node->children.emplace_back(std::move(node));
-
-      node = block();
-      if (!node) {
+    auto params = functiondeclarator();
+    if (params) {
+      auto body = block();
+      if (!body) {
         error("function body");
       }
 
-      m_current_node->children.emplace_back(std::move(node));
-
-      auto temp = makeNode<FuncDecl>();
-      temp->children = std::move(m_current_node->children);
-      temp->val_type = m_current_node->val_type;
-      temp->line = m_current_node->line;
-
-      m_current_node = std::move(temp);
-    } else {
-      if (!match(Token::SEMICOL)) {
-        error("semicolon");
-      }
+      auto node = makeNode<FuncDecl>(
+          id->value, vtype.value(), std::move(params), std::move(body));
+      node->line = type_line;
+      return std::move(node);
     }
-  } else if (match(Token::VOID))  // void id functiondeclaration
-  {
-    m_current_node = makeNode<FuncDecl>();
-    m_current_node->val_type = VType::Void;
-    m_current_node->line = m_lexer->line();
+    // var decl
+    if (!match(Token::SEMICOL)) {
+      error("semicolon after variable declaration");
+    }
 
-    auto node = identifier();
-    if (!node) {
+    auto node = makeNode<GVarDecl>(id->value, vtype.value());
+    node->line = type_line;
+
+    return std::move(node);
+  }
+
+  if (match(Token::VOID)) {  // void id functiondeclaration
+    auto type_line = m_lexer->line();
+
+    auto id = identifier();
+    if (!id) {
       error("identifier");
     }
 
-    m_current_node->children.emplace_back(std::move(node));
-
-    node = functiondeclarator();
-    if (!node) {
+    auto params = functiondeclarator();
+    if (!params) {
       error("function declaration");
     }
 
-    m_current_node->children.emplace_back(std::move(node));
-
-    node = block();
-    if (!node) {
+    auto body = block();
+    if (!body) {
       error("function body");
     }
+    auto node = makeNode<FuncDecl>(id->value, VType::Void,
+                                   std::move(params), std::move(body));
+    node->line = type_line;
 
-    m_current_node->children.emplace_back(std::move(node));
-  } else if (m_lexer->peek() == Token::ID)  // Main function
-  {
-    mainfunctiondeclaration();
-  } else {
-    m_logger->error(
-        m_lexer->line(),
-        ": Expected either a function or variable declaration. Got: ",
-        tokenToStr(m_lexer->peek()));
+    return std::move(node);
   }
 
-  return std::move(m_current_node);
+  if (m_lexer->peek() == Token::ID)  // Main function
+  {
+    return mainfunctiondeclaration();
+  }
+
+  m_logger->error(m_lexer->line(),
+                  ": Expected either a function or variable declaration. Got: ",
+                  tokenToStr(m_lexer->peek()));
 }
 
 // start = { globaldeclaration }

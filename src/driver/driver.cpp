@@ -2,9 +2,11 @@
 #include <memory>
 #include <utility>
 #include "common/ast.h"
+#include "common/ast_printer.h"
 #include "common/errwarn.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
+#include "semanal/analyzer.h"
 
 Driver::Driver(std::string file) : m_filename(std::move(file)) {
   m_logger = std::make_shared<Logger>();
@@ -24,8 +26,10 @@ bool Driver::compile() {
   bool err = m_parser->parse();
   m_ast = m_parser->getAST();
 #ifdef PARSER_DEBUG
-  m_ast->print(0);
+  ASTPrinter ast_printer = ASTPrinter();
+  m_ast->accept(&ast_printer);
 #endif
-
+  SemanticAnalyzer analyzer = SemanticAnalyzer(m_logger);
+  analyzer.analyze(m_ast);
   return err;
 }

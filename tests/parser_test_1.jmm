@@ -14,6 +14,9 @@ void nope()
 str whatisthis()
 {
     int x;
+    {
+        int x;
+    }
     x = 20 + 23087 - 2946 * 284 / 247;
     int y;
     int z;

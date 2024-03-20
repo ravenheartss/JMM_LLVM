@@ -1,17 +1,18 @@
-#ifndef JMM_GLOBALVISITOR_H
-#define JMM_GLOBALVISITOR_H
+#ifndef JMM_GLOBAL_VISITOR_H
+#define JMM_GLOBAL_VISITOR_H
 
 #include "common/ast.h"
 #include "common/errwarn.h"
 #include "common/symtab.h"
 
 class GlobalsVisitor : public Visitor {
-  friend class SemanticAnalyzer;
+friend class SemanticAnalyzer;
 
  public:
   void visit(GVarDecl const* node) override;
   void visit(FuncDecl const* node) override;
-  void visit(MFuncDecl const* node) override {}
+  void visit(MFuncDecl const* node) override;
+  void visit(ASTNode const* node) override;
 
  private:
   explicit GlobalsVisitor(std::shared_ptr<SymbolTable>& symtab,
