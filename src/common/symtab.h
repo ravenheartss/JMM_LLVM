@@ -1,15 +1,17 @@
 #ifndef JMM_SYMTAB_H
 #define JMM_SYMTAB_H
 
-#include "ast.h"
 #include "errwarn.h"
+#include "globals.h"
 #include <memory>
 #include <optional>
 #include <stack>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
-enum class Scope { GLOBAL, FUNC, BLOCK };
+// These are not in globals because these are essential only to the symbol table
+enum class Scope { RTS, GLOBAL, FUNC, BLOCK };
 
 enum class SymType { VAR, FUNC };
 
@@ -20,45 +22,62 @@ struct Symbol {
   std::optional<std::vector<VType>> param_types;
   bool isMain;
 
-  Symbol(VType type, std::vector<VType> params, bool main_func, int lineno)
-      : v_type(type),
-        param_types(std::move(params)),
-        isMain(main_func),
+  Symbol(VType type, std::vector<VType> params, int lineno)
+      : symbol_type(SymType::FUNC),
+        v_type(type),
         line(lineno),
-        symbol_type(SymType::FUNC) {}
+        param_types(std::move(params)),
+        isMain(false) {}
+
+  explicit Symbol(int lineno)
+      : symbol_type(SymType::FUNC),
+        v_type(VType::Void),
+        line(lineno),
+        param_types(std::nullopt),
+        isMain(true) {}
 
   Symbol(VType type, int lineno)
-      : v_type(type), line(lineno), symbol_type(SymType::VAR) {}
+      : symbol_type(SymType::VAR),
+        v_type(type),
+        line(lineno),
+        param_types(std::nullopt),
+        isMain(false) {}
 };
 
 class SymbolTable {
  public:
   explicit SymbolTable(std::shared_ptr<Logger>& logger) : m_logger(logger) {}
 
-  void insert(Scope scope, std::string const& name, Symbol const& signature) {
+  bool insert(Scope scope, std::string const& name,
+              std::shared_ptr<Symbol> const& signature) {
     switch (scope) {
       case Scope::GLOBAL:
-        m_global.insert({name, signature});
-        break;
+        return m_global.insert({name, signature}).second;
       case Scope::FUNC:
-        m_func.insert({name, signature});
-        break;
+        return m_func.insert({name, signature}).second;
+      case Scope::RTS:
+        return m_rts.insert({name, signature}).second;
       case Scope::BLOCK:
         if (m_blocks.empty()) {
           m_logger->warning("Failed to insert symbol: ", name, "Not in block.");
           break;
         }
-        m_blocks.top().insert({name, signature});
-        break;
+        return m_blocks.top().insert({name, signature}).second;
       default:
         break;
     }
+    return false;
   }
 
-  std::optional<Symbol> query(Scope scope, std::string const& name) {
+  std::shared_ptr<Symbol> query(Scope scope, std::string const& name) {
     switch (scope) {
       case Scope::GLOBAL:
         if (auto res = m_global.find(name); res != m_global.end()) {
+          return res->second;
+        }
+        break;
+      case Scope::RTS:
+        if (auto res = m_rts.find(name); res != m_rts.end()) {
           return res->second;
         }
         break;
@@ -85,20 +104,25 @@ class SymbolTable {
         break;
     }
 
-    return {};
+    return nullptr;
   }
 
-  std::optional<std::pair<Scope, Symbol>> query(std::string const& name) {
-    if (auto sym = query(Scope::BLOCK, name); sym.has_value()) {
-      return {{Scope::BLOCK, sym.value()}};
+  std::optional<std::pair<Scope, std::shared_ptr<Symbol>>> query(
+      std::string const& name) {
+    if (auto sym = query(Scope::BLOCK, name); sym) {
+      return {{Scope::BLOCK, sym}};
     }
 
-    if (auto sym = query(Scope::FUNC, name); sym.has_value()) {
-      return {{Scope::FUNC, sym.value()}};
+    if (auto sym = query(Scope::FUNC, name); sym) {
+      return {{Scope::FUNC, sym}};
     }
 
-    if (auto sym = query(Scope::GLOBAL, name); sym.has_value()) {
-      return {{Scope::GLOBAL, sym.value()}};
+    if (auto sym = query(Scope::GLOBAL, name); sym) {
+      return {{Scope::GLOBAL, sym}};
+    }
+
+    if (auto sym = query(Scope::RTS, name); sym) {
+      return {{Scope::RTS, sym}};
     }
 
     return {};
@@ -119,16 +143,20 @@ class SymbolTable {
   size_t current_scope() { return m_blocks.size(); }
 
   void print() {
+    std::cout << "Globals:";
     for (auto const& entry : m_global) {
       std::cerr << entry.first << '\n';
     }
   }
 
  private:
+  // Having a shared pointer to the symbol ensures that it doesn't get destroyed
+  // Or ensures it gets destroyed when the ref count hits 0
   std::shared_ptr<Logger> m_logger;
-  std::unordered_map<std::string, Symbol> m_global;
+  std::unordered_map<std::string, std::shared_ptr<Symbol>> m_rts;
+  std::unordered_map<std::string, std::shared_ptr<Symbol>> m_global;
   // For formals since they are available to entire function scope
-  std::unordered_map<std::string, Symbol> m_func;
-  std::stack<std::unordered_map<std::string, Symbol>> m_blocks;
+  std::unordered_map<std::string, std::shared_ptr<Symbol>> m_func;
+  std::stack<std::unordered_map<std::string, std::shared_ptr<Symbol>>> m_blocks;
 };
 #endif  // !JMM_SYMTAB_H

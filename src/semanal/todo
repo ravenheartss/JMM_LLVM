@@ -1,6 +1,6 @@
 No main declaration found.
 Multiple main declarations found.
-A local declaration was not in an outermost block.
+A local declaration was not in an outermost block. // Imma allow this
 The number/type of arguments in a function call doesn't match the function's declaration.
 The main declaration can't have parameters.
 The main function can't be called.

@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 #include "common/errwarn.h"
-#include "common/token.h"
+#include "common/globals.h"
 
 class Lexer {
  public:

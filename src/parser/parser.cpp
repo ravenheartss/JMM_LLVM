@@ -2,10 +2,8 @@
 #include <memory>
 #include <optional>
 #include "common/ast.h"
-#include "common/token.h"
+#include "common/globals.h"
 #include "lexer/lexer.h"
-
-// using nodePtr = std::unique_ptr<ASTNode>;
 
 template <class T>
 using nodeT = std::unique_ptr<T>;
@@ -84,7 +82,7 @@ bool Parser::match(Token expected) {
 
 [[noreturn]] void Parser::error(std::string expected) {
   m_logger->error(m_lexer->line(), ": Expected ", expected, " Got: '",
-                  tokenToStr(m_lexer->peek()), "'");
+                  m_lexer->peek(), "'");
 }
 
 // type = BOOL | INT | STR
@@ -111,7 +109,7 @@ auto Parser::identifier() {
     id->line = m_lexer->line();
   }
 
-  return std::move(id);
+  return id;
 }
 
 // literal = NUMBER | STRING | TRUE | FALSE .
@@ -133,7 +131,7 @@ nodePtr Parser::literal() {
     node->line = m_lexer->line();
   }
 
-  return std::move(node);
+  return node;
 }
 
 // variabledeclaration = type identifier SEMCOL
@@ -142,7 +140,7 @@ nodePtr Parser::variabledeclaration() {
   std::optional<VType> vtype = type();
 
   if (!vtype.has_value()) {
-    return std::move(node);
+    return node;
   }
 
   auto id = identifier();
@@ -157,7 +155,7 @@ nodePtr Parser::variabledeclaration() {
     error("semicolon after variable declaration");
   }
 
-  return std::move(node);
+  return node;
 }
 
 // simpleStmt = nullStmt | exprStmt .
@@ -172,7 +170,7 @@ nodePtr Parser::simpleStmt() {
     node = exprStmt();
   }
 
-  return std::move(node);
+  return node;
 }
 
 // exprStmt = identifier ( assignment | functioninvocation ) SEMCOL .
@@ -188,7 +186,7 @@ nodePtr Parser::exprStmt() {
     error("semicolon");
   }
 
-  return std::move(makeNode<ExprStmt>(std::move(expr)));
+  return makeNode<ExprStmt>(std::move(expr));
 }
 
 // returnStmt = RETURN [ expression ] SEMCOL .
@@ -210,7 +208,7 @@ nodePtr Parser::returnStmt() {
   }
   node->line = ret_line;
 
-  return std::move(node);
+  return node;
 }
 
 // ifStmt = IF OPAREN expression CPAREN statement [ ELSE statement ] .
@@ -254,7 +252,7 @@ nodePtr Parser::ifStmt() {
   }
 
   node->line = if_line;
-  return std::move(node);
+  return node;
 }
 
 // gotoStmt = GOTO expression SEMCOL .
@@ -273,7 +271,7 @@ nodePtr Parser::gotoStmt() {
   auto node = makeNode<GotoStmt>(std::move(expr));
   node->line = goto_line;
 
-  return std::move(node);
+  return node;
 }
 
 // whileStmt = WHILE OPAREN expression CPAREN statement .
@@ -305,7 +303,7 @@ nodePtr Parser::whileStmt() {
   auto node = makeNode<WhileStmt>(std::move(expr), std::move(body));
   node->line = while_line;
 
-  return std::move(node);
+  return node;
 }
 
 // primary = literal | OPAREN expression CPAREN .
@@ -313,11 +311,11 @@ nodePtr Parser::primary() {
   nodePtr node = literal();
 
   if (node) {
-    return std::move(node);
+    return node;
   }
 
   if (!match(Token::OPAREN)) {
-    return std::move(node);
+    return node;
   }
 
   node = expression();
@@ -330,7 +328,7 @@ nodePtr Parser::primary() {
     error("')' after expression");
   }
 
-  return std::move(node);
+  return node;
 }
 
 // argumentlist = expression { COMMA expression } .
@@ -369,7 +367,7 @@ nodeT<Actuals> Parser::functioninvocation() {
   }
 
   auto node = makeNode<Actuals>(std::move(args));
-  return std::move(node);
+  return node;
 }
 
 // postfixexpression   = primary postfixexpression1
@@ -400,12 +398,12 @@ nodePtr Parser::postfixexpression() {
 
   if (temp) {
     parse_postfixexpression1();
-    return std::move(node);
+    return node;
   }
 
   auto id = identifier();
   if (!id) {
-    return std::move(node);
+    return node;
   }
 
   // just returns the actuals
@@ -423,7 +421,7 @@ nodePtr Parser::postfixexpression() {
   }
   parse_postfixexpression1();
 
-  return std::move(node);
+  return node;
 }
 
 // unaryexpression = ( MINUS | NOT | INC | DEC ) unaryexpression |
@@ -461,7 +459,7 @@ nodePtr Parser::unaryexpression() {
 
     node = makeNode<UnaryExpr>(op, std::move(temp));
     node->line = op_line;
-    return std::move(node);
+    return node;
   }
 
   return postfixexpression();
@@ -480,7 +478,7 @@ nodePtr Parser::multiplicativeexpression() {
   }
 
   if (!match(Token::MULT) && !match(Token::DIV) && !match(Token::MOD)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -503,7 +501,7 @@ nodePtr Parser::multiplicativeexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // additiveexpression = multiplicativeexpression { add_op
@@ -519,7 +517,7 @@ nodePtr Parser::additiveexpression() {
   }
 
   if (!match(Token::PLUS) && !match(Token::MINUS)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -542,7 +540,7 @@ nodePtr Parser::additiveexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // shiftexpression = additiveexpression { shift_op additiveexpression } .
@@ -558,7 +556,7 @@ nodePtr Parser::shiftexpression() {
   }
 
   if (!match(Token::LSHIFT) && !match(Token::RSHIFT)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -582,7 +580,7 @@ nodePtr Parser::shiftexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // relationalexpression = shiftexpression { rel_op shiftexpression } .
@@ -599,7 +597,7 @@ nodePtr Parser::relationalexpression() {
 
   if (!match(Token::GT) && !match(Token::LT) && !match(Token::LTEQ) &&
       !match(Token::GTEQ)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -624,7 +622,7 @@ nodePtr Parser::relationalexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // equalityexpression = relationalexpression { eq_op relationalexpression } .
@@ -640,7 +638,7 @@ nodePtr Parser::equalityexpression() {
   }
 
   if (!match(Token::EQ) && !match(Token::NEQ)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -664,7 +662,7 @@ nodePtr Parser::equalityexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // bitwiseandexpression = equalityexpression { BAND equalityexpression } .
@@ -679,7 +677,7 @@ nodePtr Parser::bitwiseandexpression() {
   }
 
   if (!match(Token::BAND)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -701,7 +699,7 @@ nodePtr Parser::bitwiseandexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // exclusiveorexpression = bitwiseandexpression { XOR bitwiseandexpression } .
@@ -716,7 +714,7 @@ nodePtr Parser::xorexpression() {
   }
 
   if (!match(Token::XOR)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -738,7 +736,7 @@ nodePtr Parser::xorexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // bitwiseorexpreession = exclusiveorexpression { BOR exclusiveorexpression } .
@@ -753,7 +751,7 @@ nodePtr Parser::bitwiseorexpression() {
   }
 
   if (!match(Token::BOR)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -775,7 +773,7 @@ nodePtr Parser::bitwiseorexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // conditionalandexpression = bitwiseorexpreession { LAND bitwiseorexpreession }
@@ -791,7 +789,7 @@ nodePtr Parser::conditionalandexpression() {
   }
 
   if (!match(Token::LAND)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -813,7 +811,7 @@ nodePtr Parser::conditionalandexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // conditionalorexpression = conditionalandexpression { LOR
@@ -829,7 +827,7 @@ nodePtr Parser::conditionalorexpression() {
   }
 
   if (!match(Token::LOR)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -851,7 +849,7 @@ nodePtr Parser::conditionalorexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // assignmentexpression    = conditionalorexpression { ASS
@@ -867,7 +865,7 @@ nodePtr Parser::assignmentexpression() {
   }
 
   if (!match(Token::ASSIGN)) {
-    return std::move(node);
+    return node;
   }
 
   while (true) {
@@ -890,14 +888,14 @@ nodePtr Parser::assignmentexpression() {
     }
   }
 
-  return std::move(node);
+  return node;
 }
 
 // assignment  = assignmentexpression .
-nodePtr Parser::assignment() { return std::move(assignmentexpression()); }
+nodePtr Parser::assignment() { return assignmentexpression(); }
 
 // expression  = assignmentexpression .
-nodePtr Parser::expression() { return std::move(assignmentexpression()); }
+nodePtr Parser::expression() { return assignmentexpression(); }
 
 // statement = variabledeclaration | simpleStmt | returnStmt |
 //              breakStmt | block | ifStmt | gotoStmt | whileStmt .
@@ -929,7 +927,7 @@ nodePtr Parser::statement() {
     node = whileStmt();
   }
 
-  return std::move(node);
+  return node;
 }
 
 // block = OBRCK [ blockstatements ] CBRCK .
@@ -953,7 +951,7 @@ nodePtr Parser::block() {
     error("}");
   }
 
-  return std::move(block_node);
+  return block_node;
 }
 
 // formalparameterlist = formalparameter { COMMA formalparameter } .
@@ -975,12 +973,12 @@ std::vector<nodeT<ParamDecl>> Parser::formalparameterlist() {
     auto param = makeNode<ParamDecl>(id->value, vtype.value());
     param->line = m_lexer->line();
 
-    return std::move(param);
+    return param;
   };
 
   auto param = formalparameter();
   if (!param) {
-    return std::move(params);
+    return params;
   }
 
   while (true) {
@@ -996,7 +994,7 @@ std::vector<nodeT<ParamDecl>> Parser::formalparameterlist() {
     }
   }
 
-  return std::move(params);
+  return params;
 }
 
 // functiondeclarator  = OPAREN [ formalparameterlist ] CPAREN .
@@ -1005,13 +1003,13 @@ nodeT<Params> Parser::functiondeclarator() {
     return nullptr;
   }
 
-  auto params = makeNode<Params>(std::move(formalparameterlist()));
+  auto params = makeNode<Params>(formalparameterlist());
 
   if (!match(Token::CPAREN)) {
     error("')'");
   }
 
-  return std::move(params);
+  return params;
 }
 
 // mainfunctiondeclaration = id OPAREN CPAREN block .
@@ -1029,7 +1027,7 @@ nodePtr Parser::mainfunctiondeclaration() {
     m_logger->error(
         m_lexer->line(),
         ": Main function cannot take any parameters. Expected ')' but found ",
-        tokenToStr(m_lexer->peek()));
+        m_lexer->peek());
   }
 
   auto body = block();
@@ -1038,7 +1036,7 @@ nodePtr Parser::mainfunctiondeclaration() {
   }
   auto node = makeNode<MFuncDecl>(id->value, std::move(body));
   node->line = id->line;
-  return std::move(node);
+  return node;
 }
 
 // globaldeclaration   =
@@ -1068,7 +1066,7 @@ nodePtr Parser::globaldeclaration() {
       auto node = makeNode<FuncDecl>(
           id->value, vtype.value(), std::move(params), std::move(body));
       node->line = type_line;
-      return std::move(node);
+      return node;
     }
     // var decl
     if (!match(Token::SEMICOL)) {
@@ -1078,7 +1076,7 @@ nodePtr Parser::globaldeclaration() {
     auto node = makeNode<GVarDecl>(id->value, vtype.value());
     node->line = type_line;
 
-    return std::move(node);
+    return node;
   }
 
   if (match(Token::VOID)) {  // void id functiondeclaration
@@ -1102,7 +1100,7 @@ nodePtr Parser::globaldeclaration() {
                                    std::move(params), std::move(body));
     node->line = type_line;
 
-    return std::move(node);
+    return node;
   }
 
   if (m_lexer->peek() == Token::ID)  // Main function
@@ -1112,12 +1110,12 @@ nodePtr Parser::globaldeclaration() {
 
   m_logger->error(m_lexer->line(),
                   ": Expected either a function or variable declaration. Got: ",
-                  tokenToStr(m_lexer->peek()));
+                  m_lexer->peek());
 }
 
 // start = { globaldeclaration }
 void Parser::start() {
   while (m_lexer->peek() != Token::T_EOF) {
-    m_ast->children.emplace_back(std::move(globaldeclaration()));
+    m_ast->children.emplace_back(globaldeclaration());
   }
 }

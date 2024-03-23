@@ -1,42 +1,16 @@
 #ifndef JMM_AST_H
 #define JMM_AST_H
 
+#include "globals.h"
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 #include <vector>
+#include "common/symtab.h"
 
 #define ACCEPT_NODE_OVERRIDE \
   void accept(Visitor* visitor) override { visitor->visit(this); }
-
-enum class VType : uint8_t { Int, Str, Bool, Void };
-
-enum class Op : uint8_t {
-  BAND,
-  BOR,
-  LAND,
-  LOR,
-  XOR,
-  ADD,
-  POSTINC,
-  POSTDEC,
-  PREINC,
-  PREDEC,
-  SUB,
-  MULT,
-  DIV,
-  MOD,
-  NOT,
-  EQ,
-  NE,
-  GT,
-  LT,
-  GE,
-  LE,
-  LSHIFT,
-  RSHIFT
-};
 
 // Need to be defined for Visitor
 class ASTNode;
@@ -67,60 +41,58 @@ class Actuals;  // holds actualexprs
 
 using nodePtr = std::unique_ptr<ASTNode>;
 
-std::ostream& operator<<(std::ostream& out, VType value_type);
-std::ostream& operator<<(std::ostream& out, Op oper);
-
 class Visitor {
  public:
-  virtual void visit(ASTNode const* node) {}
+  // Two sets of visit. One const and one not const
+  virtual void visit([[maybe_unused]] ASTNode* node) {}
 
-  virtual void visit(IfStmt const* node) {}
+  virtual void visit([[maybe_unused]] IfStmt* node) {}
 
-  virtual void visit(IfElseStmt const* node) {}
+  virtual void visit([[maybe_unused]] IfElseStmt* node) {}
 
-  virtual void visit(WhileStmt const* node) {}
+  virtual void visit([[maybe_unused]] WhileStmt* node) {}
 
-  virtual void visit(GotoStmt const* node) {}
+  virtual void visit([[maybe_unused]] GotoStmt* node) {}
 
-  virtual void visit(ReturnStmt const* node) {}
+  virtual void visit([[maybe_unused]] ReturnStmt* node) {}
 
-  virtual void visit(BreakStmt const* node) {}
+  virtual void visit([[maybe_unused]] BreakStmt* node) {}
 
-  virtual void visit(BlockStmt const* node) {}
+  virtual void visit([[maybe_unused]] BlockStmt* node) {}
 
-  virtual void visit(ExprStmt const* node) {}
+  virtual void visit([[maybe_unused]] ExprStmt* node) {}
 
-  virtual void visit(NullStmt const* node) {}
+  virtual void visit([[maybe_unused]] NullStmt* node) {}
 
-  virtual void visit(IdExpr const* node) {}
+  virtual void visit([[maybe_unused]] IdExpr* node) {}
 
-  virtual void visit(LitExpr const* node) {}
+  virtual void visit([[maybe_unused]] LitExpr* node) {}
 
-  virtual void visit(UnaryExpr const* node) {}
+  virtual void visit([[maybe_unused]] UnaryExpr* node) {}
 
-  virtual void visit(BinaryExpr const* node) {}
+  virtual void visit([[maybe_unused]] BinaryExpr* node) {}
 
-  virtual void visit(BitwiseExpr const* node) {}
+  virtual void visit([[maybe_unused]] BitwiseExpr* node) {}
 
-  virtual void visit(AssignExpr const* node) {}
+  virtual void visit([[maybe_unused]] AssignExpr* node) {}
 
-  virtual void visit(FuncCallExpr const* node) {}
+  virtual void visit([[maybe_unused]] FuncCallExpr* node) {}
 
-  virtual void visit(FuncDecl const* node) {}
+  virtual void visit([[maybe_unused]] FuncDecl* node) {}
 
-  virtual void visit(MFuncDecl const* node) {}
+  virtual void visit([[maybe_unused]] MFuncDecl* node) {}
 
-  virtual void visit(VarDecl const* node) {}
+  virtual void visit([[maybe_unused]] VarDecl* node) {}
 
-  virtual void visit(GVarDecl const* node) {}
+  virtual void visit([[maybe_unused]] GVarDecl* node) {}
 
-  virtual void visit(ParamDecl const* node) {}
+  virtual void visit([[maybe_unused]] ParamDecl* node) {}
 
-  virtual void visit(Params const* node) {}
+  virtual void visit([[maybe_unused]] Params* node) {}
 
-  virtual void visit(Actuals const* node) {}
+  virtual void visit([[maybe_unused]] Actuals* node) {}
 
-  virtual void visit(ActualExpr const* node) {}
+  virtual void visit([[maybe_unused]] ActualExpr* node) {}
 };
 
 class ASTNode {
@@ -133,12 +105,15 @@ class ASTNode {
   ASTNode(ASTNode const& node) = delete;
 
   ASTNode& operator=(ASTNode&& node) noexcept;
-  ASTNode(ASTNode const&& node) noexcept;
+  ASTNode(ASTNode && node) noexcept;
 
   uint32_t line;
   std::vector<std::unique_ptr<ASTNode>> children;
 
   virtual void accept(Visitor* visitor) { visitor->visit(this); }
+
+  std::shared_ptr<Symbol> symbol; // stores the symbol table information
+  std::optional<VType> type; // stores the type of the node
 };
 
 // I can have this, but I find it is useless to have one since they don't really

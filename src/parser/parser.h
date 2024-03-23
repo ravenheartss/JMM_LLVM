@@ -5,7 +5,7 @@
 #include <optional>
 #include "common/ast.h"
 #include "common/errwarn.h"
-#include "common/token.h"
+#include "common/globals.h"
 #include "lexer/lexer.h"
 
 class Parser {

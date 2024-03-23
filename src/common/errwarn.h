@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include "util.h" // Might use << directly for tokens and whatnot
 
 struct Logger {
   // Change this design later and put into driver.
@@ -16,7 +17,7 @@ struct Logger {
     std::cerr << "Error: " << std::forward<Arg>(arg);
     ((std::cerr << std::forward<Args>(args)), ...);
     std::cerr << '\n';
-    exit(1);
+    std::exit(1);
   }
 
   template <typename Arg, typename... Args>

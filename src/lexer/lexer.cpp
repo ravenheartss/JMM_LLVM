@@ -5,7 +5,8 @@
 #include <memory>
 #include <unordered_map>
 #include "common/errwarn.h"
-#include "common/token.h"
+#include "common/globals.h"
+#include "common/util.h"
 
 Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger>& logger)
     : m_consumed(true), m_lineno(1), m_filename(filename), m_logger(logger) {

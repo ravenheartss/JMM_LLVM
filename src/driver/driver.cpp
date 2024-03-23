@@ -31,5 +31,6 @@ bool Driver::compile() {
 #endif
   SemanticAnalyzer analyzer = SemanticAnalyzer(m_logger);
   analyzer.analyze(m_ast);
+
   return err;
 }

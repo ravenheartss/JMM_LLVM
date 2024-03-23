@@ -9,10 +9,10 @@ class GlobalsVisitor : public Visitor {
 friend class SemanticAnalyzer;
 
  public:
-  void visit(GVarDecl const* node) override;
-  void visit(FuncDecl const* node) override;
-  void visit(MFuncDecl const* node) override;
-  void visit(ASTNode const* node) override;
+  void visit(GVarDecl * node) override;
+  void visit(FuncDecl * node) override;
+  void visit(MFuncDecl * node) override;
+  void visit(ASTNode * node) override;
 
  private:
   explicit GlobalsVisitor(std::shared_ptr<SymbolTable>& symtab,

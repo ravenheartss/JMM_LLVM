@@ -1,5 +1,8 @@
-#ifndef JMM_TOKEN_H
-#define JMM_TOKEN_H
+#ifndef JMM_GLOBALS_H
+#define JMM_GLOBALS_H
+
+// Enums
+#include <cstdint>
 
 enum class Token {
   T_EOF,
@@ -48,6 +51,32 @@ enum class Token {
   SEMICOL,
 };
 
-char const* tokenToStr(Token tok);
+enum class VType : uint8_t { Int, Str, Bool, Void };
 
-#endif  // !JMM_TOKEN_H
+enum class Op : uint8_t {
+  BAND,
+  BOR,
+  LAND,
+  LOR,
+  XOR,
+  ADD,
+  POSTINC,
+  POSTDEC,
+  PREINC,
+  PREDEC,
+  SUB,
+  MULT,
+  DIV,
+  MOD,
+  NOT,
+  EQ,
+  NE,
+  GT,
+  LT,
+  GE,
+  LE,
+  LSHIFT,
+  RSHIFT
+};
+
+#endif  //! JMM_GLOBALS_H

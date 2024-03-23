@@ -1,9 +1,11 @@
-#ifndef JMM_AST_PRINTER_H
-#define JMM_AST_PRINTER_H
+#ifndef JMM_FUNCVISITOR_H
+#define JMM_FUNCVISITOR_H
 
-#include "ast.h"
+#include "common/ast.h"
+#include "common/symtab.h"
+#include "semanal/analyzer.h"
 
-class ASTPrinter : public Visitor {
+class FunctionVisitor : public Visitor {
  public:
   void visit(ASTNode* node) override;
   void visit(IfStmt* node) override;
@@ -14,9 +16,9 @@ class ASTPrinter : public Visitor {
   void visit(BreakStmt* node) override;
   void visit(BlockStmt* node) override;
   void visit(ExprStmt* node) override;
-  void visit(NullStmt* node) override;
+  // void visit(NullStmt* node) override;
   void visit(IdExpr* node) override;
-  void visit(LitExpr* node) override;
+  // void visit(LitExpr* node) override;
   void visit(UnaryExpr* node) override;
   void visit(BinaryExpr* node) override;
   void visit(BitwiseExpr* node) override;
@@ -25,14 +27,22 @@ class ASTPrinter : public Visitor {
   void visit(FuncDecl* node) override;
   void visit(MFuncDecl* node) override;
   void visit(VarDecl* node) override;
-  void visit(GVarDecl* node) override;
   void visit(ParamDecl* node) override;
   void visit(Params* node) override;
   void visit(ActualExpr* node) override;
   void visit(Actuals* node) override;
 
  private:
-  int m_indent{0};
+  explicit FunctionVisitor(std::shared_ptr<SymbolTable>& symtab,
+                           std::shared_ptr<Logger>& logger)
+      : m_symtab(symtab), m_logger(logger) {}
+
+  std::shared_ptr<SymbolTable> m_symtab;
+  std::shared_ptr<Logger> m_logger;
+  bool m_inside_while{false};
+  bool m_visited_main{false};
+  uint32_t m_cur_block_scope{0};
+  friend class SemanticAnalyzer;
 };
 
-#endif  // !JMM_AST_PRINTER_H
+#endif  // !JMM_FUNCVISITOR_H
