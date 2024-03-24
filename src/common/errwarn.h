@@ -3,10 +3,11 @@
 
 #include <cstdlib>
 #include <iostream>
+#include "util.h" // Might use << directly for tokens and whatnot
 
 struct Logger {
   // Change this design later and put into driver.
-  static constexpr int MAX_WARNINGS = 10;
+  static constexpr int MaxWarnings = 10;
   int warnings = 0;
 
   // I would like to add a format string here and have fprintf
@@ -16,7 +17,7 @@ struct Logger {
     std::cerr << "Error: " << std::forward<Arg>(arg);
     ((std::cerr << std::forward<Args>(args)), ...);
     std::cerr << '\n';
-    exit(1);
+    std::exit(1);
   }
 
   template <typename Arg, typename... Args>
@@ -25,7 +26,7 @@ struct Logger {
     ((std::cerr << std::forward<Args>(args)), ...);
     std::cerr << '\n';
     warnings++;
-    if (warnings > MAX_WARNINGS) {
+    if (warnings > MaxWarnings) {
       error("Too many errors to continue.");
     }
   }

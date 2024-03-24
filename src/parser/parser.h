@@ -5,11 +5,13 @@
 #include <optional>
 #include "common/ast.h"
 #include "common/errwarn.h"
-#include "common/token.h"
+#include "common/globals.h"
 #include "lexer/lexer.h"
 
 class Parser {
   using nodePtr = std::unique_ptr<ASTNode>;
+  template <class T>
+  using nodeT = std::unique_ptr<T>;
 
  public:
   Parser(std::shared_ptr<Lexer>& lexer, std::shared_ptr<Logger>& logger)
@@ -26,16 +28,13 @@ class Parser {
   std::unique_ptr<ASTNode> m_ast;
   std::shared_ptr<Logger> m_logger;
 
-  // Current global declaration
-  std::unique_ptr<ASTNode> m_current_node;
-
   bool match(Token expected);
 
   [[noreturn]] void error(std::string expected);
 
   void start();
   std::optional<VType> type();
-  nodePtr identifier();
+  auto identifier();
   nodePtr block();
   nodePtr blockstatements();
   nodePtr statement();
@@ -44,14 +43,13 @@ class Parser {
   nodePtr simpleStmt();
   nodePtr returnStmt();
   nodePtr ifStmt();
-  nodePtr gotoStmt();
   nodePtr exprStmt();
   nodePtr whileStmt();
   nodePtr literal();
   nodePtr primary();
   nodePtr postfixexpression();
-  nodePtr argumentlist();
-  nodePtr functioninvocation();
+  std::vector<nodeT<ActualExpr>> argumentlist();
+  nodeT<Actuals> functioninvocation();
   nodePtr unaryexpression();
   nodePtr multiplicativeexpression();
   nodePtr conditionalandexpression();
@@ -65,9 +63,9 @@ class Parser {
   nodePtr assignmentexpression();
   nodePtr xorexpression();
   nodePtr assignment();
-  nodePtr formalparameterlist();
-  nodePtr functiondeclarator();
-  void mainfunctiondeclaration();
+  std::vector<nodeT<ParamDecl>> formalparameterlist();
+  nodeT<Params> functiondeclarator();
+  nodePtr mainfunctiondeclaration();
   nodePtr globaldeclaration();
 };
 

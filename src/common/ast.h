@@ -1,218 +1,373 @@
 #ifndef JMM_AST_H
 #define JMM_AST_H
 
+#include "globals.h"
 #include <memory>
 #include <optional>
 #include <string>
-#include <variant>
+#include <utility>
 #include <vector>
+#include "common/symtab.h"
 
-// Easiest way is to just have one class Node and have enum types
+#define ACCEPT_NODE_OVERRIDE \
+  void accept(Visitor* visitor) override { visitor->visit(this); }
 
-enum class VType : uint8_t { Int, Str, Bool, Void };
+// Need to be defined for Visitor
+class ASTNode;
+class IfStmt;
+class IfElseStmt;
+class WhileStmt;
+class ReturnStmt;
+class BreakStmt;
+class BlockStmt;
+class ExprStmt;
+class NullStmt;
+class IdExpr;
+class LitExpr;
+class UnaryExpr;
+class BinaryExpr;
+class BitwiseExpr;
+class AssignExpr;
+class FuncCallExpr;
+class FuncDecl;
+class MFuncDecl;
+class VarDecl;
+class GVarDecl;
+class ParamDecl;
+class Params;  // holds paramdecls
+class ActualExpr;
+class Actuals;  // holds actualexprs
 
-enum class Op : uint8_t {
-  BAND,
-  BOR,
-  LAND,
-  LOR,
-  XOR,
-  ADD,
-  POSTINC,
-  POSTDEC,
-  PREINC,
-  PREDEC,
-  SUB,
-  MULT,
-  DIV,
-  MOD,
-  NOT,
-  EQ,
-  NE,
-  GT,
-  LT,
-  GE,
-  LE,
-  LSHIFT,
-  RSHIFT
+using nodePtr = std::unique_ptr<ASTNode>;
+
+class Visitor {
+ public:
+  // Two sets of visit. One const and one not const
+  virtual void visit([[maybe_unused]] ASTNode* node) {}
+
+  virtual void visit([[maybe_unused]] IfStmt* node) {}
+
+  virtual void visit([[maybe_unused]] IfElseStmt* node) {}
+
+  virtual void visit([[maybe_unused]] WhileStmt* node) {}
+
+  virtual void visit([[maybe_unused]] ReturnStmt* node) {}
+
+  virtual void visit([[maybe_unused]] BreakStmt* node) {}
+
+  virtual void visit([[maybe_unused]] BlockStmt* node) {}
+
+  virtual void visit([[maybe_unused]] ExprStmt* node) {}
+
+  virtual void visit([[maybe_unused]] NullStmt* node) {}
+
+  virtual void visit([[maybe_unused]] IdExpr* node) {}
+
+  virtual void visit([[maybe_unused]] LitExpr* node) {}
+
+  virtual void visit([[maybe_unused]] UnaryExpr* node) {}
+
+  virtual void visit([[maybe_unused]] BinaryExpr* node) {}
+
+  virtual void visit([[maybe_unused]] BitwiseExpr* node) {}
+
+  virtual void visit([[maybe_unused]] AssignExpr* node) {}
+
+  virtual void visit([[maybe_unused]] FuncCallExpr* node) {}
+
+  virtual void visit([[maybe_unused]] FuncDecl* node) {}
+
+  virtual void visit([[maybe_unused]] MFuncDecl* node) {}
+
+  virtual void visit([[maybe_unused]] VarDecl* node) {}
+
+  virtual void visit([[maybe_unused]] GVarDecl* node) {}
+
+  virtual void visit([[maybe_unused]] ParamDecl* node) {}
+
+  virtual void visit([[maybe_unused]] Params* node) {}
+
+  virtual void visit([[maybe_unused]] Actuals* node) {}
+
+  virtual void visit([[maybe_unused]] ActualExpr* node) {}
 };
 
-// Base class for all nodes. Not used though.
 class ASTNode {
- protected:
+ public:
   ASTNode() = default;
+  virtual ~ASTNode();
 
- public:
-  ~ASTNode() noexcept { children.clear(); }
+  // Don't allow it to be copied
+  ASTNode& operator=(ASTNode const& node) = delete;
+  ASTNode(ASTNode const& node) = delete;
 
- public:
-  // most of these only apply to expression nodes but doesn't hurt to have them
-  // if they're not used, they'll be monotone or nullopt
-  std::variant<std::monostate, std::string, int32_t, bool> value;
-  std::optional<VType> val_type{std::nullopt};  // Types
-  std::optional<Op> op{std::nullopt};           // For operators
-  uint32_t line{0};
+  ASTNode& operator=(ASTNode&& node) noexcept;
+  ASTNode(ASTNode&& node) noexcept;
 
+  uint32_t line;
   std::vector<std::unique_ptr<ASTNode>> children;
-  virtual void print(int indent) = 0;
+
+  virtual void accept(Visitor* visitor) { visitor->visit(this); }
+
+  std::shared_ptr<Symbol> symbol;  // stores the symbol table information
+  std::optional<VType> a_type;       // stores the type of the node - Annotated type
 };
 
-class ProgNode final : public ASTNode {
+// I can have this, but I find it is useless to have one since they don't really
+// do anything and as such I can just have the actual nodes inherit from astNode
+// and ASTNode now becomes the root node. class ProgNode : public ASTNode
+// {
+// };
+//
+// class StmtNode : public ASTNode
+// {
+// };
+//
+// class ExprNode : public ASTNode
+// {
+// };
+// class DeclNode
+// {
+//     public:
+//         std::string value;
+// };
+
+class IfStmt : public ASTNode {
  public:
-  void print(int indent) override final;
+  IfStmt(nodePtr condition, nodePtr if_body)
+      : condition(std::move(condition)), if_body(std::move(if_body)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr condition;
+  nodePtr if_body;
 };
 
-class StmtNode : public ASTNode {
+class IfElseStmt : public ASTNode {
  public:
-  virtual void print(int indent) = 0;
+  IfElseStmt(nodePtr condition, nodePtr if_body, nodePtr else_body)
+      : condition(std::move(condition)),
+        if_body(std::move(if_body)),
+        else_body(std::move(else_body)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr condition;
+  nodePtr if_body;
+  nodePtr else_body;
 };
 
-class ExprNode : public ASTNode {
+class WhileStmt : public ASTNode {
  public:
-  virtual void print(int indent) = 0;
+  WhileStmt(nodePtr condition, nodePtr body)
+      : condition(std::move(condition)), body(std::move(body)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr condition;
+  nodePtr body;
 };
 
-class DeclNode : public ASTNode {
+class ReturnStmt : public ASTNode {
  public:
-  virtual void print(int indent) = 0;
+  explicit ReturnStmt(nodePtr expr) : expr(std::move(expr)) {}
+
+  ReturnStmt() = default;
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr expr;
 };
 
-// Stmts
-class IfStmt final : public StmtNode {
+class BreakStmt : public ASTNode {
  public:
-  void print(int indent) override final;
+  ACCEPT_NODE_OVERRIDE
 };
 
-class IfElseStmt final : public StmtNode {
+class BlockStmt : public ASTNode {
  public:
-  void print(int indent) override final;
+  ACCEPT_NODE_OVERRIDE
 };
 
-class WhileStmt final : public StmtNode {
+class ExprStmt : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit ExprStmt(nodePtr expr) : expr(std::move(expr)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr expr;
 };
 
-class GotoStmt final : public StmtNode {
+class NullStmt : public ASTNode {
  public:
-  void print(int indent) override final;
+  ACCEPT_NODE_OVERRIDE
 };
 
-class ReturnStmt final : public StmtNode {
+class IdExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit IdExpr(std::string value) : value(std::move(value)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::string value;
 };
 
-class BreakStmt final : public StmtNode {
+class LitExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit LitExpr(int32_t val)
+      : ival(val), bval(std::nullopt), sval(std::nullopt), type(VType::Int) {}
+
+  explicit LitExpr(bool val)
+      : ival(std::nullopt), bval(val), sval(std::nullopt), type(VType::Bool) {}
+
+  explicit LitExpr(std::string val)
+      : ival(std::nullopt), bval(std::nullopt), sval(val), type(VType::Str) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  // Yes, I can use variants, but they're a pain!!!
+  std::optional<int32_t> ival;
+  std::optional<bool> bval;
+  std::optional<std::string> sval;
+  VType type;
 };
 
-class BlockStmt final : public StmtNode {
+class UnaryExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  UnaryExpr(Op op, nodePtr expr) : op(op), expr(std::move(expr)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  Op op;
+  nodePtr expr;
 };
 
-class ExprStmt final : public StmtNode {
+class BinaryExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  BinaryExpr(Op op, nodePtr lhs, nodePtr rhs)
+      : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  Op op;
+  nodePtr lhs;
+  nodePtr rhs;
 };
 
-class NullStmt final : public StmtNode {
+class BitwiseExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  BitwiseExpr(Op op, nodePtr lhs, nodePtr rhs)
+      : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  Op op;
+  nodePtr lhs;
+  nodePtr rhs;
 };
 
-// Exprs
-class IdExpr final : public ExprNode {
+class AssignExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  AssignExpr(nodePtr lhs, nodePtr rhs)
+      : lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr lhs;
+  nodePtr rhs;
 };
 
-class LitExpr final : public ExprNode {
+class ActualExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit ActualExpr(nodePtr expr) : expr(std::move(expr)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  nodePtr expr;
 };
 
-class UnaryExpr final : public ExprNode {
+class Actuals : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit Actuals(std::vector<std::unique_ptr<ActualExpr>> actuals)
+      : actuals(std::move(actuals)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::vector<std::unique_ptr<ActualExpr>> actuals;
 };
 
-class BinaryExpr final : public ExprNode {
+class FuncCallExpr : public ASTNode {
  public:
-  void print(int indent) override final;
+  FuncCallExpr(std::string id, std::unique_ptr<Actuals> args)
+      : id(std::move(id)), args(std::move(args)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::string id;
+  std::unique_ptr<Actuals> args;
 };
 
-class BitwiseExpr final : public ExprNode {
+class FuncDecl : public ASTNode {
  public:
-  void print(int indent) override final;
+  FuncDecl(std::string id, VType return_type, std::unique_ptr<Params> params,
+           nodePtr body)
+      : id(std::move(id)),
+        return_type(return_type),
+        params(std::move(params)),
+        body(std::move(body)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::string id;
+  VType return_type;
+  std::unique_ptr<Params> params;
+  nodePtr body;
 };
 
-class AssignExpr final : public ExprNode {
+class MFuncDecl : public ASTNode {
  public:
-  void print(int indent) override final;
+  MFuncDecl(std::string id, nodePtr body)
+      : id(std::move(id)), body(std::move(body)) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::string id;
+  nodePtr body;
 };
 
-class FuncCallExpr final : public ExprNode {
+class VarDecl : public ASTNode {
  public:
-  void print(int indent) override final;
+  VarDecl(std::string id, VType type) : id(std::move(id)), type(type) {}
+
+  ACCEPT_NODE_OVERRIDE
+
+  std::string id;
+  VType type;
 };
 
-class ActualsExpr final : public ExprNode {
+// Only for visitor
+class GVarDecl : public VarDecl {
  public:
-  void print(int indent) override final;
+  GVarDecl(std::string id, VType type) : VarDecl(std::move(id), type) {}
+
+  ACCEPT_NODE_OVERRIDE
 };
 
-class ActualExpr final : public ExprNode {
+// Again only for visitor
+class ParamDecl : public VarDecl {
  public:
-  void print(int indent) override final;
+  ParamDecl(std::string id, VType type) : VarDecl(std::move(id), type) {}
+
+  ACCEPT_NODE_OVERRIDE
 };
 
-// Decls
-class FuncDecl final : public DeclNode {
+class Params : public ASTNode {
  public:
-  void print(int indent) override final;
+  explicit Params(std::vector<std::unique_ptr<ParamDecl>> params)
+      : params(std::move(params)) {}
+
+  ACCEPT_NODE_OVERRIDE
+  std::vector<std::unique_ptr<ParamDecl>> params;
 };
 
-class MFuncDecl final : public DeclNode {
- public:
-  void print(int indent) override final;
-};
-
-class VarDecl final : public DeclNode {
- public:
-  void print(int indent) override final;
-};
-
-class GVarDecl final : public DeclNode {
- public:
-  void print(int indent) override final;
-};
-
-class ParamsDecl final : public DeclNode {
- public:
-  void print(int indent) override final;
-};
-
-class ParamDecl final : public DeclNode {
- public:
-  void print(int indent) override final;
-};
-
-template <class PreOrderFunc, class PostOrderFunc>
-void traverse(std::unique_ptr<ASTNode>& node, PreOrderFunc preProc,
-              PostOrderFunc postProc) {
-  if (!node) {
-    return;
-  }
-
-  preProc(node);
-  for (auto& child : node->children) {
-    traverse(child, preProc, postProc);
-  }
-
-  postProc(node);
-}
-
-#endif  // !JMM_AST_H
+#endif  //! JMM_AST_H

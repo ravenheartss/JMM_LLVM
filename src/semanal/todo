@@ -1,0 +1,19 @@
+No return statement in a non-void function.
+A void function can't return a value.
+A non-void function must return a value.
+
+Type Analyzer:
+Type mismatch for an operator (||, &&, ==, !=, =, <, >, <=, >=, +, - (unary and binary), *, /, %, !, ++, --, &, |, ^, <<, >>).
+The number/type of arguments in a function call doesn't match the function's declaration.
+A value returned from a function has the wrong type.
+An if- or while-condition must be of Boolean type.
+PREINC, PREDEC, POSTINC, POSTDEC can only be used with l-values
+
+
+An undeclared identifier is used. -- Done
+The main declaration can't have parameters. -- Done in the parser itself
+The main function can't be called. -- Done
+Break statements must be inside a while statement. -- Done
+No main declaration found -- Done
+Multiple main declarations found -- Done
+An identifier is redefined within the same scope -- Done

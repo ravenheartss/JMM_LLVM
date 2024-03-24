@@ -5,14 +5,11 @@
 #include <memory>
 #include <unordered_map>
 #include "common/errwarn.h"
-#include "common/token.h"
+#include "common/globals.h"
+#include "common/util.h"
 
 Lexer::Lexer(std::string_view filename, std::shared_ptr<Logger>& logger)
-    : m_curr_lexeme(),
-      m_consumed(true),
-      m_lineno(1),
-      m_filename(filename),
-      m_logger(logger) {
+    : m_consumed(true), m_lineno(1), m_filename(filename), m_logger(logger) {
   m_input = std::ifstream(std::string(filename));
   if (!m_input.is_open()) {
     m_logger->error("Failed to open file.\n", std::strerror(errno));
@@ -48,28 +45,30 @@ Token Lexer::consume() {
 void Lexer::lex() {
   while (!m_input.eof()) {
     m_curr_lexeme.clear();
-    char c = m_input.peek();
-    if (c == '\n') {
+    char chr = m_input.peek();
+    if (chr == '\n') {
       m_input.get();
       m_lineno++;
       continue;
-    } else if (isspace(c)) {
+    } else if (isspace(chr)) {
       m_input.get();
       continue;
-    } else if (isalpha(c) || c == '_') {
+    } else if (isalpha(chr) || chr == '_') {
       isIdentifier();
       return;
-    } else if (isdigit(c)) {
+    } else if (isdigit(chr)) {
       isNumeric();
       return;
-    } else if (c == '"') {
+    } else if (chr == '"') {
       isStr();
       return;
-    } else if (c == '/')  // Check if it's a comment first
+    } else if (chr == '/')  // Check if it's a comment first
     {
       m_input.get();
       if (m_input.peek() == '/') {
-        while (m_input.peek() != '\n') m_input.get();
+        while (m_input.peek() != '\n') {
+          m_input.get();
+        }
       } else {
         // m_curr_token = Token::DIV;      break;
         m_input.unget();
@@ -80,32 +79,32 @@ void Lexer::lex() {
       return;
     } else if (isOperator()) {
       return;
-    } else if (c == EOF) {
+    } else if (chr == EOF) {
       m_curr_token = Token::T_EOF;
       return;
     } else {
-      m_logger->warning("Ignoring unknown character ", c, "at line ", m_lineno);
+      m_logger->warning("Ignoring unknown character ", chr, "at line ",
+                        m_lineno);
       m_input.get();
     }
   }
 
   m_curr_token = Token::T_EOF;
-  return;
 }
 
 void Lexer::isIdentifier() {
   m_curr_lexeme.push_back(m_input.get());
-  char c = m_input.peek();
-  while (isalnum(c) || c == '_') {
+  char chr = m_input.peek();
+  while (isalnum(chr) || chr == '_') {
     m_curr_lexeme.push_back(m_input.get());
-    c = m_input.peek();
+    chr = m_input.peek();
   }
   m_curr_token = Token::ID;
   isReserved();
 }
 
 void Lexer::isReserved() {
-  static std::unordered_map<std::string, Token> const reserved_words(
+  static std::unordered_map<std::string, Token> const ReservedWords(
       {{"true", Token::TRUE},
        {"false", Token::FALSE},
        {"boolean", Token::BOOL},
@@ -116,21 +115,20 @@ void Lexer::isReserved() {
        {"while", Token::WHILE},
        {"break", Token::BREAK},
        {"return", Token::RETURN},
-       {"str", Token::STR},
-       {"goto", Token::GOTO}});
+       {"str", Token::STR}});
 
-  if (auto it = reserved_words.find(m_curr_lexeme);
-      it != reserved_words.end()) {
-    m_curr_token = it->second;
+  if (auto itr = ReservedWords.find(m_curr_lexeme);
+      itr != ReservedWords.end()) {
+    m_curr_token = itr->second;
     m_curr_lexeme.clear();
   }
 }
 
 void Lexer::isNumeric() {
-  char c = m_input.peek();
-  while (isdigit(c)) {
+  char chr = m_input.peek();
+  while (isdigit(chr)) {
     m_curr_lexeme.push_back(m_input.get());
-    c = m_input.peek();
+    chr = m_input.peek();
   }
   m_curr_token = Token::NUM;
 }
@@ -138,12 +136,12 @@ void Lexer::isNumeric() {
 void Lexer::isStr() {
   m_curr_token = Token::STRLIT;
   m_input.get();  // Opening quote
-  char c = m_input.get();
-  while (c != '"') {
-    if (c == '\\') {
+  char chr = m_input.get();
+  while (chr != '"') {
+    if (chr == '\\') {
       m_curr_lexeme.push_back('\\');
-      c = m_input.get();
-      switch (c) {
+      chr = m_input.get();
+      switch (chr) {
         case 'b':
           m_curr_lexeme.push_back('b');
           break;
@@ -173,19 +171,19 @@ void Lexer::isStr() {
           m_curr_lexeme.pop_back();
           break;
       }
-    } else if (c == '\n') {
+    } else if (chr == '\n') {
       m_logger->warning("Strings cannot contain newlines at ", m_lineno);
     } else {
-      m_curr_lexeme.push_back(c);
+      m_curr_lexeme.push_back(chr);
     }
 
-    c = m_input.get();
+    chr = m_input.get();
   }
 }
 
 bool Lexer::isOperator() {
-  auto c = m_input.get();
-  switch (c) {
+  auto chr = m_input.get();
+  switch (chr) {
     case '+':
       m_curr_token = Token::PLUS;
       if (m_input.peek() == '+') {

@@ -10,7 +10,7 @@
 
 class Driver {
  public:
-  Driver(std::string file);
+  explicit Driver(std::string file);
   ~Driver();
 
   bool compile();
@@ -22,6 +22,6 @@ class Driver {
 
   std::unique_ptr<ASTNode> m_ast;
 
-  std::string filename;
+  std::string m_filename;
 };
 #endif  // !JMM_DRIVER_H
