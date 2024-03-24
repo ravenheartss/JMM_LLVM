@@ -2,6 +2,12 @@
 #include "ast_printer.h"
 #include <iostream>
 
+#define PRINT_SYMBOL                         \
+  if (node->symbol) {                        \
+    std::cerr << std::string(m_indent, ' '); \
+    node->symbol->print();                   \
+  }
+
 // ASTPrinter
 void ASTPrinter::visit(ASTNode* node) {
   // This is the root program node
@@ -38,14 +44,6 @@ void ASTPrinter::visit(WhileStmt* node) {
   ++m_indent;
   node->condition->accept(this);
   node->body->accept(this);
-  --m_indent;
-}
-
-void ASTPrinter::visit(GotoStmt* node) {
-  std::cerr << std::string(m_indent, ' ');
-  std::cerr << "GotoStmt; Line: " << node->line << '\n';
-  ++m_indent;
-  node->expr->accept(this);
   --m_indent;
 }
 
@@ -91,6 +89,9 @@ void ASTPrinter::visit(IdExpr* node) {
   std::cerr << std::string(m_indent, ' ');
   std::cerr << "ID; Value: \"" << node->value << "\"; Line: " << node->line
             << '\n';
+  ++m_indent;
+  PRINT_SYMBOL
+  --m_indent;
 }
 
 void ASTPrinter::visit(LitExpr* node) {
@@ -112,6 +113,9 @@ void ASTPrinter::visit(LitExpr* node) {
       break;
   }
   std::cerr << "'; Type: " << node->type << "; Line: " << node->line << '\n';
+  m_indent++;
+  PRINT_SYMBOL
+  --m_indent;
 }
 
 void ASTPrinter::visit(UnaryExpr* node) {
@@ -157,6 +161,7 @@ void ASTPrinter::visit(FuncCallExpr* node) {
   std::cerr << "FuncCall; Value: \"" << node->id << "\"; Line: " << node->line
             << '\n';
   ++m_indent;
+  PRINT_SYMBOL
   node->args->accept(this);
   --m_indent;
 }
@@ -167,6 +172,7 @@ void ASTPrinter::visit(FuncDecl* node) {
             << "\"; Type: " << node->return_type << "; Line: " << node->line
             << '\n';
   ++m_indent;
+  PRINT_SYMBOL
   node->params->accept(this);
   node->body->accept(this);
   --m_indent;
@@ -177,6 +183,7 @@ void ASTPrinter::visit(MFuncDecl* node) {
   std::cerr << "MainFuncDecl; Value: \"" << node->id
             << "\"; Line: " << node->line << '\n';
   ++m_indent;
+  PRINT_SYMBOL
   node->body->accept(this);
   --m_indent;
 }
@@ -185,18 +192,27 @@ void ASTPrinter::visit(VarDecl* node) {
   std::cerr << std::string(m_indent, ' ');
   std::cerr << "VarDecl; Value: \"" << node->id << "\" Type: " << node->type
             << "; Line: " << node->line << '\n';
+  ++m_indent;
+  PRINT_SYMBOL
+  --m_indent;
 }
 
 void ASTPrinter::visit(GVarDecl* node) {
   std::cerr << std::string(m_indent, ' ');
   std::cerr << "GVarDecl; Value: \"" << node->id << "\" Type: " << node->type
             << "; Line: " << node->line << '\n';
+  ++m_indent;
+  PRINT_SYMBOL
+  --m_indent;
 }
 
 void ASTPrinter::visit(ParamDecl* node) {
   std::cerr << std::string(m_indent, ' ');
   std::cerr << "ParamDecl; Value: \"" << node->id << "\" Type: " << node->type
             << "; Line: " << node->line << '\n';
+  ++m_indent;
+  PRINT_SYMBOL
+  --m_indent;
 }
 
 void ASTPrinter::visit(Params* node) {

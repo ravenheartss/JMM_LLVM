@@ -17,7 +17,6 @@ class ASTNode;
 class IfStmt;
 class IfElseStmt;
 class WhileStmt;
-class GotoStmt;
 class ReturnStmt;
 class BreakStmt;
 class BlockStmt;
@@ -51,8 +50,6 @@ class Visitor {
   virtual void visit([[maybe_unused]] IfElseStmt* node) {}
 
   virtual void visit([[maybe_unused]] WhileStmt* node) {}
-
-  virtual void visit([[maybe_unused]] GotoStmt* node) {}
 
   virtual void visit([[maybe_unused]] ReturnStmt* node) {}
 
@@ -105,15 +102,15 @@ class ASTNode {
   ASTNode(ASTNode const& node) = delete;
 
   ASTNode& operator=(ASTNode&& node) noexcept;
-  ASTNode(ASTNode && node) noexcept;
+  ASTNode(ASTNode&& node) noexcept;
 
   uint32_t line;
   std::vector<std::unique_ptr<ASTNode>> children;
 
   virtual void accept(Visitor* visitor) { visitor->visit(this); }
 
-  std::shared_ptr<Symbol> symbol; // stores the symbol table information
-  std::optional<VType> type; // stores the type of the node
+  std::shared_ptr<Symbol> symbol;  // stores the symbol table information
+  std::optional<VType> a_type;       // stores the type of the node - Annotated type
 };
 
 // I can have this, but I find it is useless to have one since they don't really
@@ -169,15 +166,6 @@ class WhileStmt : public ASTNode {
 
   nodePtr condition;
   nodePtr body;
-};
-
-class GotoStmt : public ASTNode {
- public:
-  explicit GotoStmt(nodePtr expr) : expr(std::move(expr)) {}
-
-  ACCEPT_NODE_OVERRIDE
-
-  nodePtr expr;
 };
 
 class ReturnStmt : public ASTNode {

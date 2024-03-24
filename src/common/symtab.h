@@ -42,6 +42,29 @@ struct Symbol {
         line(lineno),
         param_types(std::nullopt),
         isMain(false) {}
+
+  void print() {
+    switch (symbol_type) {
+      case SymType::VAR:
+        std::cerr << "Symbol; Type: " << v_type << "; Declared at line " << line
+                  << "\n";
+        break;
+      case SymType::FUNC:
+        if (isMain) {
+          std::cerr << "Symbol; Main function";
+        } else {
+          std::cerr << "Symbol; Return Type: " << v_type;
+          if (param_types.has_value()) {
+            std::cerr << "; Param Types: ";
+            for (auto const& ptype : param_types.value()) {
+              std::cerr << ptype << " ";
+            }
+          }
+        }
+        std::cerr << "; Declared at line " << line << "\n";
+        break;
+    }
+  }
 };
 
 class SymbolTable {
@@ -150,8 +173,8 @@ class SymbolTable {
   }
 
  private:
-  // Having a shared pointer to the symbol ensures that it doesn't get destroyed
-  // Or ensures it gets destroyed when the ref count hits 0
+  // Having a shared pointer to the symbol ensures that it doesn't get
+  // destroyed Or ensures it gets destroyed when the ref count hits 0
   std::shared_ptr<Logger> m_logger;
   std::unordered_map<std::string, std::shared_ptr<Symbol>> m_rts;
   std::unordered_map<std::string, std::shared_ptr<Symbol>> m_global;

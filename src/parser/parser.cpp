@@ -255,25 +255,6 @@ nodePtr Parser::ifStmt() {
   return node;
 }
 
-// gotoStmt = GOTO expression SEMCOL .
-nodePtr Parser::gotoStmt() {
-  if (!match(Token::GOTO)) {
-    return nullptr;
-  }
-
-  auto goto_line = m_lexer->line();
-
-  auto expr = expression();
-  if (!expr) {
-    error("expression after goto");
-  }
-
-  auto node = makeNode<GotoStmt>(std::move(expr));
-  node->line = goto_line;
-
-  return node;
-}
-
 // whileStmt = WHILE OPAREN expression CPAREN statement .
 nodePtr Parser::whileStmt() {
   if (!match(Token::WHILE)) {
@@ -408,7 +389,7 @@ nodePtr Parser::postfixexpression() {
 
   // just returns the actuals
   auto args = functioninvocation();
-  if (args){
+  if (args) {
     node = std::make_unique<FuncCallExpr>(id->value, std::move(args));
     node->line = id->line;
 
@@ -858,35 +839,21 @@ nodePtr Parser::assignmentexpression() {
   nodePtr node(nullptr);
   nodePtr temp(nullptr);
 
-  node = conditionalorexpression();
+  temp = conditionalorexpression();
 
-  if (!node) {
+  if (!temp) {
     return nullptr;
   }
 
   if (!match(Token::ASSIGN)) {
-    return node;
+    return temp;
   }
 
-  while (true) {
-    auto op_line = m_lexer->line();
+  auto op_line = m_lexer->line();
 
-    auto rhs = conditionalorexpression();
-
-    if (!rhs) {
-      error("an expression");
-    }
-
-    temp = makeNode<AssignExpr>(std::move(node), std::move(rhs));
-    temp->line = op_line;
-
-    node = std::move(temp);
-    temp.reset();
-
-    if (!match(Token::ASSIGN)) {
-      break;
-    }
-  }
+  auto rhs = assignmentexpression();  // parse again if =
+  node = makeNode<AssignExpr>(std::move(temp), std::move(rhs));
+  node->line = op_line;
 
   return node;
 }
@@ -898,7 +865,7 @@ nodePtr Parser::assignment() { return assignmentexpression(); }
 nodePtr Parser::expression() { return assignmentexpression(); }
 
 // statement = variabledeclaration | simpleStmt | returnStmt |
-//              breakStmt | block | ifStmt | gotoStmt | whileStmt .
+//              breakStmt | block | ifStmt | whileStmt .
 nodePtr Parser::statement() {
   nodePtr node(nullptr);
 
@@ -919,9 +886,6 @@ nodePtr Parser::statement() {
   }
   if (!node) {
     node = ifStmt();
-  }
-  if (!node) {
-    node = gotoStmt();
   }
   if (!node) {
     node = whileStmt();
@@ -1063,8 +1027,8 @@ nodePtr Parser::globaldeclaration() {
         error("function body");
       }
 
-      auto node = makeNode<FuncDecl>(
-          id->value, vtype.value(), std::move(params), std::move(body));
+      auto node = makeNode<FuncDecl>(id->value, vtype.value(),
+                                     std::move(params), std::move(body));
       node->line = type_line;
       return node;
     }
@@ -1096,8 +1060,8 @@ nodePtr Parser::globaldeclaration() {
     if (!body) {
       error("function body");
     }
-    auto node = makeNode<FuncDecl>(id->value, VType::Void,
-                                   std::move(params), std::move(body));
+    auto node = makeNode<FuncDecl>(id->value, VType::Void, std::move(params),
+                                   std::move(body));
     node->line = type_line;
 
     return node;

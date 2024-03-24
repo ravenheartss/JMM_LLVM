@@ -9,7 +9,6 @@ class ASTPrinter : public Visitor {
   void visit(IfStmt* node) override;
   void visit(IfElseStmt* node) override;
   void visit(WhileStmt* node) override;
-  void visit(GotoStmt* node) override;
   void visit(ReturnStmt* node) override;
   void visit(BreakStmt* node) override;
   void visit(BlockStmt* node) override;

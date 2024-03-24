@@ -43,7 +43,6 @@ class Parser {
   nodePtr simpleStmt();
   nodePtr returnStmt();
   nodePtr ifStmt();
-  nodePtr gotoStmt();
   nodePtr exprStmt();
   nodePtr whileStmt();
   nodePtr literal();

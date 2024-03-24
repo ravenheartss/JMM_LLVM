@@ -5,6 +5,10 @@ void FunctionVisitor::visit(ASTNode* node) {
   for (auto const& child : node->children) {
     child->accept(this);
   }
+
+  if (!m_visited_main) {
+    m_logger->error("No main function found");
+  }
 }
 
 void FunctionVisitor::visit(IfStmt* node) {
@@ -25,18 +29,20 @@ void FunctionVisitor::visit(WhileStmt* node) {
   m_inside_while = false;
 }
 
-void FunctionVisitor::visit(GotoStmt* node) { node->expr->accept(this); }
-
 void FunctionVisitor::visit(ReturnStmt* node) {
   if (node->expr) {
     node->expr->accept(this);
+  }
+
+  if (!m_current_function) {
+    m_logger->error("Return statement not inside function");
   }
 }
 
 void FunctionVisitor::visit(BreakStmt* node) {
   if (!m_inside_while) {
     m_logger->error("Break statement at line ", node->line,
-                      " outside while body");
+                    " outside while body");
   }
 }
 
@@ -58,13 +64,13 @@ void FunctionVisitor::visit(IdExpr* node) {
   auto res = m_symtab->query(name);
   if (!res.has_value()) {
     m_logger->error("Use of undefined variable '", name, "' at line ",
-                      node->line);
-  } else {
-    node->symbol = res.value().second;
+                    node->line);
   }
+  if (res.value().second->symbol_type == SymType::FUNC) {
+    m_logger->error("Cannot use a function as a variable at line ", node->line);
+  }
+  node->symbol = res.value().second;
 }
-
-// void FunctionVisitor::visit(LitExpr* node) {}
 
 void FunctionVisitor::visit(UnaryExpr* node) { node->expr->accept(this); }
 
@@ -84,29 +90,44 @@ void FunctionVisitor::visit(AssignExpr* node) {
 }
 
 void FunctionVisitor::visit(FuncCallExpr* node) {
+  node->args->accept(this);
   auto const& name = node->id;
-  auto sym = m_symtab->query(Scope::GLOBAL, name);
+  auto sym = m_symtab->query(name);
   if (!sym) {
     m_logger->error("Call to undefined function '", name, "' at line ",
                     node->line);
   }
-  node->symbol = sym;
+  if (sym.value().second->symbol_type == SymType::VAR) {
+    m_logger->error("Cannot invoke a variable as a function at line ",
+                    node->line);
+  }
+  if (sym.value().second->isMain) {
+    m_logger->error("Cannot invoke main function at line ", node->line);
+  }
+  node->symbol = sym.value().second;
 }
 
 void FunctionVisitor::visit(FuncDecl* node) {
   // enter function
+  // This helps in examining stuff like return statements
+  m_current_function = node->symbol;
+
   node->params->accept(this);
   node->body->accept(this);
 
   m_symtab->exit_func();
+  m_current_function.reset();
 }
 
 void FunctionVisitor::visit(MFuncDecl* node) {
+  m_current_function = node->symbol;
   if (m_visited_main) {
     m_logger->error("Redfinition of main function at line ", node->line);
   }
 
+  node->body->accept(this);
   m_visited_main = true;
+  m_current_function.reset();
 }
 
 void FunctionVisitor::visit(VarDecl* node) {  // can only be in block

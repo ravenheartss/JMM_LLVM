@@ -19,12 +19,12 @@ Functions. Functions may take arguments, and must return either int, boolean, vo
 
 Expressions. The usual operations: +, -, *, /, %, <, >, <=, >=, =, ==, !=, !, &&, ||, and unary minus. Java precedence and associativity rules apply, but can be modified with the use of parentheses. Logical AND (&&) and OR (/||/) are short-circuiting. Added: Bitwise and (&), or (|), xor (^) and icrementing/decrementing (++/--).
 
-Statements. break, return, if, if-else, and while. Added: goto
+Statements. break, return, if, if-else, and while.
 
 Strong type checking. No casting.
 
 
-No bitwise and, bitwise or, string type, XOR, bitwise shifts, incrementing/decrementing or goto in the original lang but hey why not! They're easy to add.
+No bitwise and, bitwise or, string type, XOR, bitwise shifts, incrementing/decrementing in the original lang but hey why not! They're easy to add.
 I've only removed the null character which is supported and preserved in strings that the students had to include.
 
 I have not made any big changes to the language as this was mainly implemented so I can help my students better on issues that they would run into. There hasn't been any big changes to the grammar either.
@@ -38,7 +38,7 @@ I have not made any big changes to the language as this was mainly implemented s
 * Identifiers -- start with `_` or alphabet followed by alphanumric or underscores
 * String literals -- Only escapes `\b, \f, \t, \r, \n, \', \", \\` supported
 * Integer literals -- base ten only
-* Reserved words -- `true, false, boolean, int, void, if, else, while, break, return, str, goto`
+* Reserved words -- `true, false, boolean, int, void, if, else, while, break, return, str`
 * Operators: `+, -, *, /, %, ^, <, >, <=, >=, =, ==, !=, !, &&, ||, &, |, ++, --`
 * Parentheses
 * Braces
@@ -278,7 +278,6 @@ statement               : block
                         | IF '(' expression ')' statement
                         | IF '(' expression ')' statement ELSE statement
                         | WHILE '(' expression ')' statement
-                        | GOTO expression ';'
                         ;
 
 statementexpression     : assignment
@@ -424,7 +423,7 @@ block   = OBRCK [ blockstatements ] CBRCK .
 blockstatements = statement { statement } .
 
 statement   = variabledeclaration | simpleStmt | returnStmt |
-                breakStmt | block | ifStmt | gotoStmt | whileStmt .
+                breakStmt | block | ifStmt | whileStmt .
 
 simpleStmt  = nullStmt | exprStmt .
 
@@ -437,8 +436,6 @@ returnStmt  = RETURN [ expression ] SEMCOL .
 breakStmt   = BREAK SEMCOL .
 
 ifStmt      = IF OPAREN expression CPAREN statement [ ELSE statement ] .
-
-gotoStmt    = GOTO expression SEMCOL .
 
 whileStmt   = WHILE OPAREN expression CPAREN statement .
 

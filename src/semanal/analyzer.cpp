@@ -5,6 +5,7 @@
 #include "common/ast.h"
 #include "common/symtab.h"
 #include "semanal/func_visitor.h"
+#include "semanal/type_visitor.h"
 
 SemanticAnalyzer::SemanticAnalyzer(std::shared_ptr<Logger>& logger)
     : m_logger(logger) {
@@ -30,12 +31,13 @@ SemanticAnalyzer::SemanticAnalyzer(std::shared_ptr<Logger>& logger)
 
 bool SemanticAnalyzer::analyze(nodePtr& node) {
   auto globals = GlobalsVisitor(m_symtab, m_logger);
-
   node->accept(&globals);
 
   FunctionVisitor funcs = FunctionVisitor(m_symtab, m_logger);
-
   node->accept(&funcs);
+
+  TypeVisitor typeanal = TypeVisitor(m_symtab, m_logger);
+  node->accept(&typeanal);
 
   m_symtab->print();
   return true;

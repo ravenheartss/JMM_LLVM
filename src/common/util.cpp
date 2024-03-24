@@ -32,8 +32,6 @@ char const* tokenToStr(Token tok) {
       return "break";
     case Token::RETURN:
       return "return";
-    case Token::GOTO:
-      return "goto";
     case Token::OPAREN:
       return "(";
     case Token::CPAREN:
@@ -191,8 +189,6 @@ std::ostream& operator<<(std::ostream& out, Token tok) {
       return out << "break";
     case Token::RETURN:
       return out << "return";
-    case Token::GOTO:
-      return out << "goto";
     case Token::OPAREN:
       return out << "(";
     case Token::CPAREN:

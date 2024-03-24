@@ -20,7 +20,6 @@ enum class Token {
   WHILE,
   BREAK,
   RETURN,
-  GOTO,
   OPAREN,
   CPAREN,
   OBRCK,

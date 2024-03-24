@@ -21,10 +21,12 @@ add_executable(jmm
     semanal/analyzer.cpp
     semanal/global_visitor.cpp
     semanal/func_visitor.cpp
+    semanal/type_visitor.cpp
     )
 
 
 add_compile_definitions($<$<CONFIG:DEBUG>:LEXER_DEBUG>)
 add_compile_definitions($<$<CONFIG:DEBUG>:PARSER_DEBUG>)
+add_compile_definitions($<$<CONFIG:DEBUG>:SEMANAL_DEBUG>)
 target_include_directories(jmm PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 

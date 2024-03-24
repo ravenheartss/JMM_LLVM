@@ -25,12 +25,14 @@ Driver::~Driver() {
 bool Driver::compile() {
   bool err = m_parser->parse();
   m_ast = m_parser->getAST();
-#ifdef PARSER_DEBUG
   ASTPrinter ast_printer = ASTPrinter();
+#ifdef PARSER_DEBUG
   m_ast->accept(&ast_printer);
 #endif
   SemanticAnalyzer analyzer = SemanticAnalyzer(m_logger);
   analyzer.analyze(m_ast);
-
+#ifdef SEMANAL_DEBUG
+  m_ast->accept(&ast_printer);
+#endif
   return err;
 }

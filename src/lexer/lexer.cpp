@@ -115,8 +115,7 @@ void Lexer::isReserved() {
        {"while", Token::WHILE},
        {"break", Token::BREAK},
        {"return", Token::RETURN},
-       {"str", Token::STR},
-       {"goto", Token::GOTO}});
+       {"str", Token::STR}});
 
   if (auto itr = ReservedWords.find(m_curr_lexeme);
       itr != ReservedWords.end()) {
