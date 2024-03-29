@@ -7,6 +7,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "semanal/analyzer.h"
+#include "codegen/codegen.h"
 
 Driver::Driver(std::string file) : m_filename(std::move(file)) {
   m_logger = std::make_shared<Logger>();
@@ -34,5 +35,8 @@ bool Driver::compile() {
 #ifdef SEMANAL_DEBUG
   m_ast->accept(&ast_printer);
 #endif
+  IRCodegenVisitor codegen = IRCodegenVisitor(m_filename);
+  m_ast->accept(&codegen);
+  codegen.output();
   return err;
 }

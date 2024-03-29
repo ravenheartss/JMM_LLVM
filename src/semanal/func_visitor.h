@@ -2,6 +2,7 @@
 #define JMM_FUNCVISITOR_H
 
 #include <memory>
+#include <variant>
 #include "common/ast.h"
 #include "common/symtab.h"
 #include "semanal/analyzer.h"
@@ -37,7 +38,7 @@ class FunctionVisitor : public Visitor {
 
   std::shared_ptr<SymbolTable> m_symtab;
   std::shared_ptr<Logger> m_logger;
-  bool m_inside_while{false};
+  std::stack<std::monostate> m_inside_while;
   bool m_visited_main{false};
   std::shared_ptr<Symbol> m_current_function;
   friend class SemanticAnalyzer;

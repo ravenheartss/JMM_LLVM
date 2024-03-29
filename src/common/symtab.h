@@ -3,6 +3,8 @@
 
 #include "errwarn.h"
 #include "globals.h"
+#include <llvm/IR/Value.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <memory>
 #include <optional>
 #include <stack>
@@ -21,6 +23,7 @@ struct Symbol {
   int line;
   std::optional<std::vector<VType>> param_types;
   bool isMain;
+  llvm::Value* llvm_Value;
 
   Symbol(VType type, std::vector<VType> params, int lineno)
       : symbol_type(SymType::FUNC),

@@ -23,10 +23,10 @@ void FunctionVisitor::visit(IfElseStmt* node) {
 }
 
 void FunctionVisitor::visit(WhileStmt* node) {
-  m_inside_while = true;
+  m_inside_while.emplace();
   node->condition->accept(this);
   node->body->accept(this);
-  m_inside_while = false;
+  m_inside_while.pop();
 }
 
 void FunctionVisitor::visit(ReturnStmt* node) {
@@ -40,7 +40,7 @@ void FunctionVisitor::visit(ReturnStmt* node) {
 }
 
 void FunctionVisitor::visit(BreakStmt* node) {
-  if (!m_inside_while) {
+  if (m_inside_while.empty()) {
     m_logger->error("Break statement at line ", node->line,
                     " outside while body");
   }
