@@ -193,14 +193,7 @@ llvm::Value* IRCodegenVisitor::codegen(UnaryExpr const* node) {
 llvm::Value* IRCodegenVisitor::codegen(BinaryExpr const* node) {
   // Binary Expressions are all expressions but bitwise
   auto* lhs = node->lhs->codegen(this);
-  std::cerr << node->lhs->a_type.value() << "<- Type of lhs";
-  if (node->lhs->symbol->symbol_type == SymType::VAR) std::cerr << " --- VAR\n";
-  if (lhs->getType()->isIntegerTy()) std::cerr << "INDEED\n";
-
   auto* rhs = node->rhs->codegen(this);
-
-  std::cerr << node->rhs->a_type.value() << "<- Type of rhs\n";
-  if (rhs->getType()->isIntegerTy()) std::cerr << "INDEED\n";
 
   // TODO(shankar): Make short-circuiting
   switch (node->op) {
@@ -274,7 +267,7 @@ llvm::Value* IRCodegenVisitor::codegen(AssignExpr const* node) {
 llvm::Value* IRCodegenVisitor::codegen(FuncCallExpr const* node) {
   auto* func = m_module->getFunction(llvm::StringRef(node->id));
 
-  std::vector<llvm::Value*> argv(node->args->actuals.size());
+  std::vector<llvm::Value*> argv;
   for (auto const& actual : node->args->actuals) {
     argv.push_back(actual->codegen(this));
   }

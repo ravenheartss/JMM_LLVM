@@ -17,7 +17,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(FuncDecl* node) {
     func_type =
         llvm::FunctionType::get(m_gen->getType(node->return_type), false);
   } else {
-    std::vector<llvm::Type*> types(node->symbol->param_types.value().size());
+    std::vector<llvm::Type*> types;
     for (auto const& ptype : node->symbol->param_types.value()) {
       types.emplace_back(m_gen->getType(ptype));
     }
@@ -65,7 +65,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(GVarDecl* node) {
       break;
     case VType::Str:
       gvar = new llvm::GlobalVariable(*m_gen->m_module, m_gen->Str(),
-                                      /*isConstant*/ false,
+                                      /*isConstant*/ true,
                                       llvm::GlobalValue::PrivateLinkage,
                                       nullptr, llvm::StringRef(node->id));
       if (!gvar) {
