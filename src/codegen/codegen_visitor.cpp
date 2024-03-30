@@ -156,12 +156,14 @@ void IRCodegenVisitor::visit(MFuncDecl* node) {
 }
 
 void IRCodegenVisitor::visit(VarDecl* node) {
-  // Since variable declaration, create a globalvariable in LLVM and add it to
-  // symbol table
   llvm::Constant* zero_ival = llvm::ConstantInt::getSigned(Int32(), 0);
   llvm::Constant* zero_bval = llvm::ConstantInt::getBool(Boolean(), false);
   llvm::AllocaInst* var;
 
+  auto curr_func = m_builder->GetInsertBlock()->getParent();
+
+  auto revert_point = m_builder->saveAndClearIP(); // save restore IP
+  m_builder->SetInsertPointPastAllocas(curr_func); // set IP to last alloca
   switch (node->type) {
     case VType::Int:
       var =
@@ -169,7 +171,7 @@ void IRCodegenVisitor::visit(VarDecl* node) {
       if (!var) {
         m_logger->error("Failed to create local variable of type Int");
       }
-      m_builder->CreateStore(zero_ival, var);
+      // m_builder->CreateStore(zero_ival, var);
       break;
     case VType::Str:
       // Basically just a pointer to some string buffer. And these pointers can
@@ -187,12 +189,13 @@ void IRCodegenVisitor::visit(VarDecl* node) {
       if (!var) {
         m_logger->error("Failed to create local variable of type bool");
       }
-      m_builder->CreateStore(zero_bval, var);
+      // m_builder->CreateStore(zero_bval, var);
       break;
     case VType::Void:
       m_logger->error("Cannot create VOID type variable");
   }
   node->symbol->llvm_Value = var;
+  m_builder->restoreIP(revert_point); // Revert back IP
 }
 
 // void IRCodegenVisitor::visit(GVarDecl* node) {

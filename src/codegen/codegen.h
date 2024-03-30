@@ -7,8 +7,8 @@
 #include <memory>
 #include "common/ast.h"
 
-// TODO(shankar): Fix this design. Just have the IRCodeVisitor. The visit functions are not really needed.
-// The codegens can just return nullptr
+// TODO(shankar): Fix this design. Just have the IRCodeVisitor. The visit
+// functions are not really needed. The codegens can just return nullptr
 
 class IRCodegenVisitor : public Visitor, public IRCodeVisitor {
  public:
@@ -64,7 +64,6 @@ class IRCodegenVisitor : public Visitor, public IRCodeVisitor {
   llvm::Value* codegen(Actuals const* node) override;
   llvm::Value* codegen(ActualExpr const* node) override;
 
-
   void output() { m_module->print(llvm::errs(), nullptr); }
 
  private:
@@ -106,7 +105,7 @@ class IRCodegenVisitor : public Visitor, public IRCodeVisitor {
   std::unique_ptr<llvm::Module> m_module;
   std::unique_ptr<llvm::IRBuilder<>> m_builder;
   std::shared_ptr<Logger> m_logger;
-  llvm::Function * m_curr_func;
+  llvm::Function* m_curr_func;
   std::stack<llvm::BasicBlock*> m_while_context;
   std::string m_mainFuncID;
 };

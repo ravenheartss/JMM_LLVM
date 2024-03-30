@@ -1,6 +1,9 @@
 #include "codegen.h"
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/Support/raw_ostream.h>
 #include "common/globals.h"
+#include "common/symtab.h"
 
 llvm::Value* IRCodegenVisitor::codegen(ASTNode const* node) {
   for (auto const& child : node->children) {
@@ -73,9 +76,9 @@ llvm::Value* IRCodegenVisitor::codegen(WhileStmt const* node) {
   llvm::BasicBlock* body = llvm::BasicBlock::Create(*m_context, "while.body");
   llvm::BasicBlock* end = llvm::BasicBlock::Create(*m_context, "while.end");
 
-  m_builder->CreateCondBr(cond_val, body, end); // This works as well!
+  m_builder->CreateCondBr(cond_val, body, end);  // This works as well!
 
-  m_while_context.push(end); // Push the current end block to while_context
+  m_while_context.push(end);  // Push the current end block to while_context
 
   body->insertInto(func);
   m_builder->SetInsertPoint(body);
@@ -89,44 +92,13 @@ llvm::Value* IRCodegenVisitor::codegen(WhileStmt const* node) {
   m_while_context.pop();
 
   return nullptr;
-
-  // // Create a basic block for the body.
-  // llvm::Function* func = m_builder->GetInsertBlock()->getParent();
-  // auto* cond = llvm::BasicBlock::Create(*m_context, "while.cond", func);
-  // // m_builder->CreateBr(cond);
-  // m_builder->SetInsertPoint(cond);
-  //
-  // auto* condition = node->condition->codegen(this);
-  //
-  // auto* body = llvm::BasicBlock::Create(*m_context, "while.body", func);
-  // auto* end = llvm::BasicBlock::Create(*m_context, "while.end", func);
-  //
-  // // Gen code for condition
-  // m_builder->CreateCondBr(condition, body, end);
-  //
-  // // Gen code for body
-  // m_builder->SetInsertPoint(body);
-  //
-  // // Push the cuurent end block to the context stack for break statements
-  // m_while_context.emplace(end);
-  //
-  // node->body->accept(this);
-  //
-  // // Jump to body
-  // m_builder->CreateBr(cond);
-  //
-  // // Set insertion to end
-  // m_builder->SetInsertPoint(end);
-  //
-  // m_while_context.pop();
-  //
-  // return nullptr;
 }
 
 llvm::Value* IRCodegenVisitor::codegen(ReturnStmt const* node) {
   if (node->a_type.value() == VType::Void) {
     return m_builder->CreateRetVoid();
   }
+  auto* ret = node->expr->codegen(this);
   return m_builder->CreateRet(node->expr->codegen(this));
 }
 
@@ -140,6 +112,8 @@ llvm::Value* IRCodegenVisitor::codegen(BlockStmt const* node) {
   for (auto const& child : node->children) {
     child->codegen(this);
   }
+
+  return nullptr;
 }
 
 llvm::Value* IRCodegenVisitor::codegen(ExprStmt const* node) {
@@ -152,8 +126,10 @@ llvm::Value* IRCodegenVisitor::codegen(IdExpr const* node) {
     m_logger->error("Failed to get symbol of ID at line ", node->line);
   }
 
-  // Always return load
+  // Always return load ??
   return m_builder->CreateLoad(getType(node->a_type.value()), val);
+  // val);
+  // return val;
 }
 
 llvm::Value* IRCodegenVisitor::codegen(LitExpr const* node) {
@@ -217,7 +193,14 @@ llvm::Value* IRCodegenVisitor::codegen(UnaryExpr const* node) {
 llvm::Value* IRCodegenVisitor::codegen(BinaryExpr const* node) {
   // Binary Expressions are all expressions but bitwise
   auto* lhs = node->lhs->codegen(this);
+  std::cerr << node->lhs->a_type.value() << "<- Type of lhs";
+  if (node->lhs->symbol->symbol_type == SymType::VAR) std::cerr << " --- VAR\n";
+  if (lhs->getType()->isIntegerTy()) std::cerr << "INDEED\n";
+
   auto* rhs = node->rhs->codegen(this);
+
+  std::cerr << node->rhs->a_type.value() << "<- Type of rhs\n";
+  if (rhs->getType()->isIntegerTy()) std::cerr << "INDEED\n";
 
   // TODO(shankar): Make short-circuiting
   switch (node->op) {
@@ -277,22 +260,13 @@ llvm::Value* IRCodegenVisitor::codegen(BitwiseExpr const* node) {
 }
 
 llvm::Value* IRCodegenVisitor::codegen(AssignExpr const* node) {
-  llvm::Value* lhs = node->lhs->codegen(this);  // returns the variable alloca
+  // No need to call codegen for lhs since we know it is a valid ID
+  // thanks to the semantic analyzer. Another downside to calling codegen on ID
+  // is that it returns a load instruction which we don't want here. So just get
+  // the value from the symbol table
+  llvm::Value* lhs = node->lhs->symbol->llvm_Value;
   llvm::Value* rhs = node->rhs->codegen(this);
 
-  // if identifier, load the value
-  // if (node->rhs->symbol) {
-  // Since we're storing the alloca as a value, we need to know the type!!
-  // Get it from symbol table and generate the type
-  // rhs = m_builder->CreateLoad(getType(node->a_type.value()), rhs);
-  // }
-  // sanity check although we know that lhs is an id with semanal
-  // don't load the value as this is what happens with id codegen is called
-  // instead just get the value and since we have a pointer to the symbol entry,
-  // get the llvm value
-  if (node->lhs->symbol) {
-    lhs = node->lhs->symbol->llvm_Value;
-  }
   m_builder->CreateStore(rhs, lhs);
   return rhs;  // carry this value up the tree
 }
