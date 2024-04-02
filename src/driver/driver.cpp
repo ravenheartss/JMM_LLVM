@@ -26,7 +26,7 @@ Driver::~Driver() {
 bool Driver::compile() {
   bool err = m_parser->parse();
   m_ast = m_parser->getAST();
-  ASTPrinter ast_printer = ASTPrinter();
+  [[maybe_unused]] ASTPrinter ast_printer = ASTPrinter();
 #ifdef PARSER_DEBUG
   m_ast->accept(&ast_printer);
 #endif

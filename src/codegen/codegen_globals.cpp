@@ -1,5 +1,6 @@
-
 #include "codegen/codegen.h"
+
+// Only process globals and adds function prototypes and global variables.
 
 IRCodegenVisitor::CodegenGlobals::CodegenGlobals(IRCodegenVisitor const* gen)
     : m_gen(gen) {}
@@ -85,6 +86,8 @@ void IRCodegenVisitor::CodegenGlobals::visit(GVarDecl* node) {
       break;
     case VType::Void:
       m_gen->m_logger->error("Cannot create VOID type variable");
+    default:
+      m_gen->m_logger->error("Failed to create variable. Unknown type");
   }
   node->symbol->llvm_Value = gvar;
 }
