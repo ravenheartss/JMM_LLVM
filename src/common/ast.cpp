@@ -8,7 +8,8 @@ ASTNode& ASTNode::operator=(ASTNode&& node) noexcept {
   return *this;
 }
 
-ASTNode::ASTNode(ASTNode && node) noexcept {
+ASTNode::ASTNode(ASTNode&& node) noexcept {
   line = node.line;
   children = std::move(node.children);
 }
+

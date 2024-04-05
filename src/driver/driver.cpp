@@ -7,6 +7,7 @@
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "semanal/analyzer.h"
+#include "codegen/codegen.h"
 
 Driver::Driver(std::string file) : m_filename(std::move(file)) {
   m_logger = std::make_shared<Logger>();
@@ -25,14 +26,23 @@ Driver::~Driver() {
 bool Driver::compile() {
   bool err = m_parser->parse();
   m_ast = m_parser->getAST();
-  ASTPrinter ast_printer = ASTPrinter();
-#ifdef PARSER_DEBUG
-  m_ast->accept(&ast_printer);
-#endif
+  [[maybe_unused]] ASTPrinter ast_printer = ASTPrinter();
+  #ifdef PARSER_DEBUG
+    m_ast->accept(&ast_printer);
+  #endif
   SemanticAnalyzer analyzer = SemanticAnalyzer(m_logger);
   analyzer.analyze(m_ast);
-#ifdef SEMANAL_DEBUG
-  m_ast->accept(&ast_printer);
+  #ifdef SEMANAL_DEBUG
+    m_ast->accept(&ast_printer);
+  #endif
+  IRCodegenVisitor codegen = IRCodegenVisitor(m_filename, m_logger);
+  m_ast->accept(&codegen);
+#ifdef OPTIMIZE
+  codegen.optimize();
 #endif
+#ifdef CODEGEN_DEBUG
+  codegen.output();
+#endif
+  codegen.generateObj();
   return err;
 }

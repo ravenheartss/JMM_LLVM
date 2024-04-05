@@ -12,6 +12,11 @@
 #define ACCEPT_NODE_OVERRIDE \
   void accept(Visitor* visitor) override { visitor->visit(this); }
 
+#define CODEGEN_OVERRIDE                                  \
+  llvm::Value* codegen(IRCodeVisitor* visitor) override { \
+    return visitor->codegen(this);                        \
+  }
+
 // Need to be defined for Visitor
 class ASTNode;
 class IfStmt;
@@ -92,6 +97,57 @@ class Visitor {
   virtual void visit([[maybe_unused]] ActualExpr* node) {}
 };
 
+class IRCodeVisitor {
+ public:
+  virtual llvm::Value* codegen(ASTNode const* node) = 0;
+
+  virtual llvm::Value* codegen(IfStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(IfElseStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(WhileStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(ReturnStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(BreakStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(BlockStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(ExprStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(NullStmt const* node) = 0;
+
+  virtual llvm::Value* codegen(IdExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(LitExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(UnaryExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(BinaryExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(BitwiseExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(AssignExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(FuncCallExpr const* node) = 0;
+
+  virtual llvm::Value* codegen(FuncDecl const* node) = 0;
+
+  virtual llvm::Value* codegen(MFuncDecl const* node) = 0;
+
+  virtual llvm::Value* codegen(VarDecl const* node) = 0;
+
+  virtual llvm::Value* codegen(GVarDecl const* node) = 0;
+
+  virtual llvm::Value* codegen(ParamDecl const* node) = 0;
+
+  virtual llvm::Value* codegen(Params const* node) = 0;
+
+  virtual llvm::Value* codegen(Actuals const* node) = 0;
+
+  virtual llvm::Value* codegen(ActualExpr const* node) = 0;
+};
+
 class ASTNode {
  public:
   ASTNode() = default;
@@ -110,7 +166,11 @@ class ASTNode {
   virtual void accept(Visitor* visitor) { visitor->visit(this); }
 
   std::shared_ptr<Symbol> symbol;  // stores the symbol table information
-  std::optional<VType> a_type;       // stores the type of the node - Annotated type
+  std::optional<VType> a_type;  // stores the type of the node - Annotated type
+
+  virtual llvm::Value* codegen(IRCodeVisitor* visitor) {
+    return visitor->codegen(this);
+  }
 };
 
 // I can have this, but I find it is useless to have one since they don't really
@@ -138,6 +198,7 @@ class IfStmt : public ASTNode {
       : condition(std::move(condition)), if_body(std::move(if_body)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr condition;
   nodePtr if_body;
@@ -151,6 +212,7 @@ class IfElseStmt : public ASTNode {
         else_body(std::move(else_body)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr condition;
   nodePtr if_body;
@@ -163,6 +225,7 @@ class WhileStmt : public ASTNode {
       : condition(std::move(condition)), body(std::move(body)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr condition;
   nodePtr body;
@@ -175,6 +238,7 @@ class ReturnStmt : public ASTNode {
   ReturnStmt() = default;
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr expr;
 };
@@ -182,11 +246,13 @@ class ReturnStmt : public ASTNode {
 class BreakStmt : public ASTNode {
  public:
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 };
 
 class BlockStmt : public ASTNode {
  public:
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 };
 
 class ExprStmt : public ASTNode {
@@ -194,6 +260,7 @@ class ExprStmt : public ASTNode {
   explicit ExprStmt(nodePtr expr) : expr(std::move(expr)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr expr;
 };
@@ -201,6 +268,7 @@ class ExprStmt : public ASTNode {
 class NullStmt : public ASTNode {
  public:
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 };
 
 class IdExpr : public ASTNode {
@@ -208,6 +276,7 @@ class IdExpr : public ASTNode {
   explicit IdExpr(std::string value) : value(std::move(value)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::string value;
 };
@@ -224,6 +293,7 @@ class LitExpr : public ASTNode {
       : ival(std::nullopt), bval(std::nullopt), sval(val), type(VType::Str) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   // Yes, I can use variants, but they're a pain!!!
   std::optional<int32_t> ival;
@@ -237,6 +307,7 @@ class UnaryExpr : public ASTNode {
   UnaryExpr(Op op, nodePtr expr) : op(op), expr(std::move(expr)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   Op op;
   nodePtr expr;
@@ -248,6 +319,7 @@ class BinaryExpr : public ASTNode {
       : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   Op op;
   nodePtr lhs;
@@ -260,6 +332,7 @@ class BitwiseExpr : public ASTNode {
       : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   Op op;
   nodePtr lhs;
@@ -272,6 +345,7 @@ class AssignExpr : public ASTNode {
       : lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr lhs;
   nodePtr rhs;
@@ -282,6 +356,7 @@ class ActualExpr : public ASTNode {
   explicit ActualExpr(nodePtr expr) : expr(std::move(expr)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   nodePtr expr;
 };
@@ -292,6 +367,7 @@ class Actuals : public ASTNode {
       : actuals(std::move(actuals)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::vector<std::unique_ptr<ActualExpr>> actuals;
 };
@@ -302,6 +378,7 @@ class FuncCallExpr : public ASTNode {
       : id(std::move(id)), args(std::move(args)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::string id;
   std::unique_ptr<Actuals> args;
@@ -317,6 +394,7 @@ class FuncDecl : public ASTNode {
         body(std::move(body)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::string id;
   VType return_type;
@@ -330,6 +408,7 @@ class MFuncDecl : public ASTNode {
       : id(std::move(id)), body(std::move(body)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::string id;
   nodePtr body;
@@ -340,6 +419,7 @@ class VarDecl : public ASTNode {
   VarDecl(std::string id, VType type) : id(std::move(id)), type(type) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 
   std::string id;
   VType type;
@@ -351,6 +431,7 @@ class GVarDecl : public VarDecl {
   GVarDecl(std::string id, VType type) : VarDecl(std::move(id), type) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 };
 
 // Again only for visitor
@@ -359,6 +440,7 @@ class ParamDecl : public VarDecl {
   ParamDecl(std::string id, VType type) : VarDecl(std::move(id), type) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
 };
 
 class Params : public ASTNode {
@@ -367,6 +449,7 @@ class Params : public ASTNode {
       : params(std::move(params)) {}
 
   ACCEPT_NODE_OVERRIDE
+  CODEGEN_OVERRIDE
   std::vector<std::unique_ptr<ParamDecl>> params;
 };
 
