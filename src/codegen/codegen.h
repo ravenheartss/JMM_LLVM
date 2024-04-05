@@ -12,8 +12,8 @@
 
 class IRCodegenVisitor : public Visitor, public IRCodeVisitor {
  public:
-  explicit IRCodegenVisitor(std::string const& filename);
-  void visit(ASTNode* node) override; // Need this for first global pass
+  explicit IRCodegenVisitor(std::string const& filename, std::shared_ptr<Logger> &logger);
+  void visit(ASTNode* node) override;  // Need this for first global pass
 
   // IRCode builder
   llvm::Value* codegen(ASTNode const* node) override;
@@ -41,7 +41,11 @@ class IRCodegenVisitor : public Visitor, public IRCodeVisitor {
   llvm::Value* codegen(Actuals const* node) override;
   llvm::Value* codegen(ActualExpr const* node) override;
 
+  void optimize();
+
   void output() { m_module->print(llvm::errs(), nullptr); }
+
+  void generateObj();
 
  private:
   friend class CodegenGlobals;

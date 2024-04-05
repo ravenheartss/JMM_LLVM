@@ -39,6 +39,5 @@ bool SemanticAnalyzer::analyze(nodePtr& node) {
   TypeVisitor typeanal = TypeVisitor(m_symtab, m_logger);
   node->accept(&typeanal);
 
-  m_symtab->print();
   return true;
 }

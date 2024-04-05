@@ -139,23 +139,23 @@ void Lexer::isStr() {
   char chr = m_input.get();
   while (chr != '"') {
     if (chr == '\\') {
-      m_curr_lexeme.push_back('\\');
+      // m_curr_lexeme.push_back('\\');
       chr = m_input.get();
       switch (chr) {
         case 'b':
-          m_curr_lexeme.push_back('b');
+          m_curr_lexeme.push_back('\b');
           break;
         case 'f':
-          m_curr_lexeme.push_back('f');
+          m_curr_lexeme.push_back('\f');
           break;
         case 't':
-          m_curr_lexeme.push_back('t');
+          m_curr_lexeme.push_back('\t');
           break;
         case 'r':
-          m_curr_lexeme.push_back('r');
+          m_curr_lexeme.push_back('\r');
           break;
         case 'n':
-          m_curr_lexeme.push_back('n');
+          m_curr_lexeme.push_back('\n');
           break;
         case '\'':
           m_curr_lexeme.push_back('\'');

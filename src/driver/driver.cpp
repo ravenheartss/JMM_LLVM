@@ -27,16 +27,22 @@ bool Driver::compile() {
   bool err = m_parser->parse();
   m_ast = m_parser->getAST();
   [[maybe_unused]] ASTPrinter ast_printer = ASTPrinter();
-#ifdef PARSER_DEBUG
-  m_ast->accept(&ast_printer);
-#endif
+  #ifdef PARSER_DEBUG
+    m_ast->accept(&ast_printer);
+  #endif
   SemanticAnalyzer analyzer = SemanticAnalyzer(m_logger);
   analyzer.analyze(m_ast);
-#ifdef SEMANAL_DEBUG
-  m_ast->accept(&ast_printer);
-#endif
-  IRCodegenVisitor codegen = IRCodegenVisitor(m_filename);
+  #ifdef SEMANAL_DEBUG
+    m_ast->accept(&ast_printer);
+  #endif
+  IRCodegenVisitor codegen = IRCodegenVisitor(m_filename, m_logger);
   m_ast->accept(&codegen);
+#ifdef OPTIMIZE
+  codegen.optimize();
+#endif
+#ifdef CODEGEN_DEBUG
   codegen.output();
+#endif
+  codegen.generateObj();
   return err;
 }

@@ -27,7 +27,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(FuncDecl* node) {
   }
 
   llvm::Function* func =
-      llvm::Function::Create(func_type, llvm::Function::PrivateLinkage,
+      llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
                              llvm::StringRef(node->id), *m_gen->m_module);
 
   auto* it1 = func->args().begin();
@@ -41,7 +41,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(FuncDecl* node) {
 void IRCodegenVisitor::CodegenGlobals::visit(MFuncDecl* node) {
   llvm::FunctionType* func_type = llvm::FunctionType::get(m_gen->Void(), false);
 
-  llvm::Function::Create(func_type, llvm::Function::PrivateLinkage,
+  llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
                          llvm::StringRef(node->id), *m_gen->m_module);
 }
 
@@ -57,7 +57,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(GVarDecl* node) {
     case VType::Int:
       gvar = new llvm::GlobalVariable(*m_gen->m_module, m_gen->Int32(),
                                       /*isConstant*/ false,
-                                      llvm::GlobalValue::PrivateLinkage,
+                                      llvm::GlobalValue::ExternalLinkage,
                                       zero_ival, llvm::StringRef(node->id));
       if (!gvar) {
         m_gen->m_logger->error(
@@ -67,7 +67,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(GVarDecl* node) {
     case VType::Str:
       gvar = new llvm::GlobalVariable(*m_gen->m_module, m_gen->Str(),
                                       /*isConstant*/ true,
-                                      llvm::GlobalValue::PrivateLinkage,
+                                      llvm::GlobalValue::ExternalLinkage,
                                       nullptr, llvm::StringRef(node->id));
       if (!gvar) {
         m_gen->m_logger->error(
@@ -77,7 +77,7 @@ void IRCodegenVisitor::CodegenGlobals::visit(GVarDecl* node) {
     case VType::Bool:
       gvar = new llvm::GlobalVariable(*m_gen->m_module, m_gen->Boolean(),
                                       /*isConstant*/ false,
-                                      llvm::GlobalValue::PrivateLinkage,
+                                      llvm::GlobalValue::ExternalLinkage,
                                       zero_bval, llvm::StringRef(node->id));
       if (!gvar) {
         m_gen->m_logger->error(

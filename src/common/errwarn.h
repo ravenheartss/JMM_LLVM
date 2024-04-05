@@ -1,14 +1,16 @@
 #ifndef JMM_ERRWARN_H
 #define JMM_ERRWARN_H
 
+#include "util.h"  // Might use << directly for tokens and whatnot
 #include <cstdlib>
 #include <iostream>
-#include "util.h" // Might use << directly for tokens and whatnot
 
 struct Logger {
   // Change this design later and put into driver.
   static constexpr int MaxWarnings = 10;
-  int warnings = 0;
+  int warnings{0};
+
+  Logger() = default;
 
   // I would like to add a format string here and have fprintf
   // but format string vuln without any sanitization!

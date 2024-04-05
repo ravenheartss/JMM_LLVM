@@ -1,7 +1,9 @@
 #include "codegen.h"
 #include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
@@ -11,15 +13,7 @@
 #include <memory>
 #include "common/globals.h"
 
-IRCodegenVisitor::IRCodegenVisitor(std::string const& filename) {
-  m_context = std::make_unique<llvm::LLVMContext>();
-  m_module = std::make_unique<llvm::Module>(filename, *m_context);
-  m_builder = std::make_unique<llvm::IRBuilder<>>(*m_context);
-
-  buildRTS();
-}
-
-// I'll exclusively be relying on syscalls for all of my RTS functions
+// I'll exclusively be relying on libC for all of my RTS functions
 // LLVM IR does not have any way to use syscalls or if it does, I haven't
 // managed to find any after the surfing the internet for a few minutes.
 // However, making syscalls would defeat the entire purpose of the IR!
@@ -47,7 +41,7 @@ void IRCodegenVisitor::buildRTS() {
 
   arg_types.emplace_back(Str());
   rts_ftype = llvm::FunctionType::get(Void(), arg_types, false);
-  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::PrivateLinkage,
+  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::ExternalLinkage,
                                     llvm::Twine("prints"), *m_module);
   for (auto& arg : rts_func->args()) {
     arg.setName("str");
@@ -58,7 +52,7 @@ void IRCodegenVisitor::buildRTS() {
   args.emplace_back(fmt);
   args.emplace_back(rts_func->getArg(0));
 
-  m_builder->CreateCall(libc_func, args, "call");
+  m_builder->CreateCall(libc_func, args);
   m_builder->CreateRetVoid();
   llvm::verifyFunction(*rts_func);
 
@@ -73,17 +67,19 @@ void IRCodegenVisitor::buildRTS() {
       llvm::Function::Create(libc_ftype, llvm::Function::ExternalLinkage,
                              llvm::Twine("exit"), *m_module);
   libc_func->setCallingConv(llvm::CallingConv::C);
+  libc_func->addFnAttr(llvm::Attribute::NoReturn);
   arg_types.clear();
 
   rts_ftype = llvm::FunctionType::get(Void(), false);
-  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::PrivateLinkage,
+  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::ExternalLinkage,
                                     llvm::Twine("halt"), *m_module);
   body = llvm::BasicBlock::Create(*m_context, "entry", rts_func);
   m_builder->SetInsertPoint(body);
   args.emplace_back(llvm::ConstantInt::getSigned(Int32(), 0));
 
-  m_builder->CreateCall(libc_func, args, "call");
-  m_builder->CreateRetVoid();
+  m_builder->CreateCall(libc_func, args);
+  m_builder->CreateUnreachable();
+  rts_func->addFnAttr(llvm::Attribute::NoReturn);
   llvm::verifyFunction(*rts_func);
 
   // ----------------------------
@@ -97,7 +93,7 @@ void IRCodegenVisitor::buildRTS() {
 
   arg_types.emplace_back(Int32());
   rts_ftype = llvm::FunctionType::get(Void(), arg_types, false);
-  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::PrivateLinkage,
+  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::ExternalLinkage,
                                     llvm::Twine("printi"), *m_module);
   for (auto& arg : rts_func->args()) {
     arg.setName("int");
@@ -107,7 +103,7 @@ void IRCodegenVisitor::buildRTS() {
   args.emplace_back(fmt);
   args.emplace_back(rts_func->getArg(0));
 
-  m_builder->CreateCall(libc_func, args, "call");
+  m_builder->CreateCall(libc_func, args);
   m_builder->CreateRetVoid();
   llvm::verifyFunction(*rts_func);
 
@@ -125,7 +121,7 @@ void IRCodegenVisitor::buildRTS() {
 
   arg_types.emplace_back(Boolean());
   rts_ftype = llvm::FunctionType::get(Void(), arg_types, false);
-  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::PrivateLinkage,
+  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::ExternalLinkage,
                                     llvm::Twine("printb"), *m_module);
   for (auto& arg : rts_func->args()) {
     arg.setName("bool");
@@ -140,14 +136,17 @@ void IRCodegenVisitor::buildRTS() {
       rts_func->getArg(0), llvm::ConstantInt::getBool(Boolean(), true));
   m_builder->CreateCondBr(cond, true_print, false_print);
   m_builder->SetInsertPoint(true_print);
+
   args.emplace_back(true_str);
-  m_builder->CreateCall(libc_func, args, "call");
+  m_builder->CreateCall(libc_func, args);
+  m_builder->CreateRetVoid();
+
   m_builder->SetInsertPoint(false_print);
   args.clear();
   args.emplace_back(false_str);
-  m_builder->CreateCall(libc_func, args, "call");
-
+  m_builder->CreateCall(libc_func, args);
   m_builder->CreateRetVoid();
+
   llvm::verifyFunction(*rts_func);
 
   // ------------------------------------------------------------------------
@@ -170,7 +169,7 @@ void IRCodegenVisitor::buildRTS() {
 
   arg_types.emplace_back(Int32());
   rts_ftype = llvm::FunctionType::get(Void(), arg_types, false);
-  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::PrivateLinkage,
+  rts_func = llvm::Function::Create(rts_ftype, llvm::Function::ExternalLinkage,
                                     llvm::Twine("printc"), *m_module);
   for (auto& arg : rts_func->args()) {
     arg.setName("char");
@@ -180,8 +179,8 @@ void IRCodegenVisitor::buildRTS() {
   args.emplace_back(fmt);
   args.emplace_back(rts_func->getArg(0));
 
-  auto* res = m_builder->CreateCall(libc_func, args, "call");
-  m_builder->CreateRet(res);
+  m_builder->CreateCall(libc_func, args);
+  m_builder->CreateRetVoid();
   llvm::verifyFunction(*rts_func);
 }
 
@@ -210,6 +209,42 @@ void IRCodegenVisitor::visit(ASTNode* node) {
   for (auto const& child : node->children) {
     child->codegen(this);
   }
+
+  // Two functions/variables cannot have the same ID in J-- so it's safe to
+  // assume there's only one function with the name main After codegen of all
+  // nodes, insert main function
+  //
+  // TODO(shankar): Easiest way to avoid all this is to just pre/postfix all
+  // global variables and functions with something but eh.
+  auto* mainf = m_module->getFunction("main");
+  if (mainf) {
+    // If we do find a main, rename it to main.1 Why? because it's illegal in
+    // J--!! So it's safe to say it's not defined!
+    mainf->setName(llvm::Twine("main.1"));
+  } else {
+    mainf = m_module->getFunction(m_mainFuncID);
+  }
+
+  auto* gvar = m_module->getGlobalVariable("main");
+  if (gvar) {
+    gvar->setName(llvm::Twine(".main"));
+  }
+
+  auto* func_type = llvm::FunctionType::get(Int32(), false);
+
+  auto* new_mainf =
+      llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
+                             llvm::StringRef("main"), *m_module);
+
+  // just call main now and return 0
+  auto* block = llvm::BasicBlock::Create(*m_context, "entry", new_mainf);
+  m_builder->SetInsertPoint(block);
+
+  m_builder->CreateCall(mainf);
+  m_builder->CreateRet(llvm::ConstantInt::getSigned(Int32(), 0));
+
+  llvm::verifyFunction(*new_mainf);
+  llvm::verifyModule(*m_module);
 }
 
 llvm::Value* IRCodegenVisitor::codegen(ASTNode const* node) {
@@ -229,17 +264,20 @@ llvm::Value* IRCodegenVisitor::codegen(IfStmt const* node) {
   // Create basic blocks for "then" branch, "else" branch (if any), and the join
   // point.
   auto* then = llvm::BasicBlock::Create(*m_context, "if.then", func);
-  auto* end = llvm::BasicBlock::Create(*m_context, "if.end", func);
+  auto* end = llvm::BasicBlock::Create(*m_context, "if.end");
 
   m_builder->CreateCondBr(cond, then, end);
 
   m_builder->SetInsertPoint(then);
   node->if_body->codegen(this);
+  then = m_builder->GetInsertBlock();
+  m_builder->CreateBr(end);
 
   // No need to create an unconditional branch here to end as we know there's no
   // else!
 
-  // Set the builder insertion point in the join block.
+  // Emit end and set the builder insertion point.
+  func->insert(func->end(), end);
   m_builder->SetInsertPoint(end);
   return nullptr;
 }
@@ -249,21 +287,29 @@ llvm::Value* IRCodegenVisitor::codegen(IfElseStmt const* node) {
 
   auto* cond = node->condition->codegen(this);
   auto* then = llvm::BasicBlock::Create(*m_context, "if.then", func);
-  auto* else_block = llvm::BasicBlock::Create(*m_context, "if.else", func);
-  auto* end = llvm::BasicBlock::Create(*m_context, "if.end", func);
+  auto* else_block = llvm::BasicBlock::Create(*m_context, "if.else");
+  auto* end = llvm::BasicBlock::Create(*m_context, "if.end");
 
   m_builder->CreateCondBr(cond, then, else_block);
 
   m_builder->SetInsertPoint(then);
   node->if_body->codegen(this);
 
+  then = m_builder->GetInsertBlock();  // Update scope since it can change
+                                       // during codegen of then
   m_builder->CreateBr(end);
 
+  func->insert(func->end(), else_block);
   m_builder->SetInsertPoint(else_block);
   node->else_body->codegen(this);
 
+  else_block = m_builder->GetInsertBlock();
+  m_builder->CreateBr(end);
+
   // Set the builder insertion point in the join block.
+  func->insert(func->end(), end);
   m_builder->SetInsertPoint(end);
+
   return nullptr;
 }
 
@@ -278,25 +324,29 @@ llvm::Value* IRCodegenVisitor::codegen(WhileStmt const* node) {
   auto* func = m_builder->GetInsertBlock()->getParent();
   llvm::BasicBlock* cond =
       llvm::BasicBlock::Create(*m_context, "while.cond", func);
+
+  m_builder->CreateBr(cond);  // Jump to condition
+
   m_builder->SetInsertPoint(cond);
 
-  auto* cond_val = node->condition->codegen(this);  // This works! Good job!
+  auto* cond_val = node->condition->codegen(this);
 
   llvm::BasicBlock* body = llvm::BasicBlock::Create(*m_context, "while.body");
   llvm::BasicBlock* end = llvm::BasicBlock::Create(*m_context, "while.end");
 
-  m_builder->CreateCondBr(cond_val, body, end);  // This works as well!
+  m_builder->CreateCondBr(cond_val, body, end);
 
   m_while_context.push(end);  // Push the current end block to while_context
 
-  body->insertInto(func);
+  func->insert(func->end(), body);
   m_builder->SetInsertPoint(body);
   node->body->codegen(this);
+
   body = m_builder->GetInsertBlock();
 
   m_builder->CreateBr(cond);
 
-  end->insertInto(func);
+  func->insert(func->end(), end);
   m_builder->SetInsertPoint(end);
   m_while_context.pop();
 
@@ -400,8 +450,8 @@ llvm::Value* IRCodegenVisitor::codegen(UnaryExpr const* node) {
 llvm::Value* IRCodegenVisitor::codegen(BinaryExpr const* node) {
   // Binary Expressions are all expressions but bitwise
 
-  llvm::Value* lhs;
-  llvm::Value* rhs;
+  llvm::Value* lhs = nullptr;
+  llvm::Value* rhs = nullptr;
 
   if (node->op != Op::LAND && node->op != Op::LOR) {
     lhs = node->lhs->codegen(this);
@@ -412,7 +462,7 @@ llvm::Value* IRCodegenVisitor::codegen(BinaryExpr const* node) {
   switch (node->op) {
     case Op::LAND: {
       lhs = node->lhs->codegen(this);
-      auto * curr_block = m_builder->GetInsertBlock();
+      auto* curr_block = m_builder->GetInsertBlock();
 
       auto* lhstrue = llvm::BasicBlock::Create(
           *m_context, "lhs.true", m_builder->GetInsertBlock()->getParent());
@@ -435,12 +485,12 @@ llvm::Value* IRCodegenVisitor::codegen(BinaryExpr const* node) {
     }
     case Op::LOR: {
       lhs = node->lhs->codegen(this);
-      auto * curr_block = m_builder->GetInsertBlock();
+      auto* curr_block = m_builder->GetInsertBlock();
 
       auto* lhsfalse = llvm::BasicBlock::Create(
           *m_context, "lhs.false", m_builder->GetInsertBlock()->getParent());
       auto* lhsend = llvm::BasicBlock::Create(*m_context, "lhs.end");
-      
+
       m_builder->CreateCondBr(lhs, lhsend, lhsfalse);
       m_builder->SetInsertPoint(lhsfalse);
 
@@ -526,6 +576,10 @@ llvm::Value* IRCodegenVisitor::codegen(FuncCallExpr const* node) {
     argv.push_back(actual->codegen(this));
   }
 
+  if (node->a_type == VType::Void) {
+    return m_builder->CreateCall(func, argv);
+  }
+
   return m_builder->CreateCall(func, argv, "call");
 }
 
@@ -537,16 +591,24 @@ llvm::Value* IRCodegenVisitor::codegen(ParamDecl const* /*node*/) {
   return llvm::ConstantInt::getNullValue(Int32());
 }
 
-llvm::Value* IRCodegenVisitor::codegen(Params const* /*node*/) {
+llvm::Value* IRCodegenVisitor::codegen(Params const* node) {
+  // This is usually never called
+  for (auto const& child : node->params) {
+    child->codegen(this);
+  }
   return llvm::ConstantInt::getNullValue(Int32());
 }
 
-llvm::Value* IRCodegenVisitor::codegen(Actuals const* /*node*/) {
+llvm::Value* IRCodegenVisitor::codegen(Actuals const* node) {
+  // This is usually never called
+  for (auto const& child : node->actuals) {
+    child->codegen(this);
+  }
   return llvm::ConstantInt::getNullValue(Int32());
 }
 
-llvm::Value* IRCodegenVisitor::codegen(ActualExpr const* /*node*/) {
-  return llvm::ConstantInt::getNullValue(Int32());
+llvm::Value* IRCodegenVisitor::codegen(ActualExpr const* node) {
+  return node->expr->codegen(this);
 }
 
 llvm::Value* IRCodegenVisitor::codegen(NullStmt const* /*node*/) {
@@ -575,9 +637,34 @@ llvm::Value* IRCodegenVisitor::codegen(FuncDecl const* node) {
 
   node->body->codegen(this);
 
-  if (!body->getTerminator()) {
+  for (auto& block : *func) {
+    bool foundreturn = false;
+    for (auto& ins : block) {
+      // will only execute if there is another statement after return
+      if (foundreturn) {
+          // essentially dead code elimination but we need to do this since 
+          // for some reason it segfaults if the secontion is marked as unreachable
+        ins.eraseFromParent();
+        break;
+      }
+      if (llvm::isa<llvm::ReturnInst>(&ins)) {
+        foundreturn = true;
+      }
+    }
+
+    if (block.getTerminator() != nullptr) {
+      continue;
+    }
     if (func->getReturnType()->isVoidTy()) {
+      m_builder->SetInsertPoint(&block);
       m_builder->CreateRetVoid();
+    } else {
+      m_logger->warning("Not all control flows return"); 
+      auto* trap_intrinsic = llvm::Intrinsic::getDeclaration(
+          m_module.get(), llvm::Intrinsic::trap);
+      m_builder->SetInsertPoint(&block);
+      m_builder->CreateCall(trap_intrinsic);
+      m_builder->CreateUnreachable();
     }
   }
 
@@ -598,9 +685,9 @@ llvm::Value* IRCodegenVisitor::codegen(MFuncDecl const* node) {
   m_builder->SetInsertPoint(body);
   node->body->codegen(this);
 
-  // if (!body->getTerminator()) {
-  m_builder->CreateRetVoid();
-  // }
+  if (m_builder->GetInsertBlock()->getTerminator() == nullptr) {
+    m_builder->CreateRetVoid();
+  }
 
   llvm::verifyFunction(*func);
   return func;
