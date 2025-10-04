@@ -1,5 +1,5 @@
 # J-- LLVM
-A compiler for J-- using LLVM (a subset of Java)
+All compilers for J-- using LLVM (a subset of Java)
 
 The language was designed for CPSC 411 - Compiler Construction at the University of Calgary by Dr. John Aycock.
 I was a TA for the course and implemented this alongside my students.
